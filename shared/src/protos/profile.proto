@@ -1,0 +1,111 @@
+syntax = "proto3";
+
+package profile;
+
+service ProfileService {
+  rpc GetProfile (GetProfileRequest) returns (Profile);
+  rpc CreateProfile (CreateProfileRequest) returns (Profile);
+  rpc UpdateProfile (UpdateProfileRequest) returns (Profile);
+  rpc DeleteProfile (DeleteProfileRequest) returns (SuccessResponse);
+  rpc SearchProfiles (SearchProfilesRequest) returns (SearchProfilesResponse);
+}
+
+message GetProfileRequest {
+  string userId = 1;
+}
+
+message SuccessResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message WorkExperience {
+  string id = 1;
+  string title = 2;
+  string company = 3;
+  string description = 4;
+  string startDate = 5;
+  string endDate = 6;
+  bool isCurrent = 7;
+}
+
+message Education {
+  string id = 1;
+  string institution = 2;
+  string degree = 3;
+  string field = 4;
+  string startDate = 5;
+  string endDate = 6;
+}
+
+message Skill {
+  string id = 1;
+  string name = 2;
+}
+
+message PrivacySettings {
+  bool profileVisible = 1;
+  bool showViews = 2;
+  bool openToWork = 3;
+}
+
+message Profile {
+  string id = 1;
+  string userId = 2;
+  string firstName = 3;
+  string lastName = 4;
+  string headline = 5;
+  string bio = 6;
+  string location = 7;
+  string profilePicture = 8;
+  string coverPhoto = 9;
+  string website = 10;
+  string githubUrl = 11;
+  string linkedinUrl = 12;
+  PrivacySettings privacy = 13;
+  repeated WorkExperience workExperience = 14;
+  repeated Education education = 15;
+  repeated Skill skills = 16;
+  string username = 17;
+}
+
+message CreateProfileRequest {
+  string userId = 1;
+  string firstName = 2;
+  string lastName = 3;
+  string headline = 4;
+  string bio = 5;
+  string location = 6;
+  string username = 7;
+}
+
+message UpdateProfileRequest {
+  string userId = 1;
+  string firstName = 2;
+  string lastName = 3;
+  string headline = 4;
+  string bio = 5;
+  string location = 6;
+  string profilePicture = 7;
+  string coverPhoto = 8;
+  string website = 9;
+  string githubUrl = 10;
+  string linkedinUrl = 11;
+  PrivacySettings privacy = 12;
+  repeated WorkExperience workExperience = 13;
+  repeated Education education = 14;
+  repeated Skill skills = 15;
+  string username = 16;
+}
+
+message DeleteProfileRequest {
+  string userId = 1;
+}
+
+message SearchProfilesRequest {
+  string username = 1;
+}
+
+message SearchProfilesResponse {
+  repeated Profile profiles = 1;
+}

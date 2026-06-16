@@ -1,0 +1,89 @@
+syntax = "proto3";
+
+package connection;
+
+service ConnectionService {
+  rpc SendConnectionRequest (SendRequestMsg) returns (ConnectionStatusResponse);
+  rpc AcceptConnectionRequest (AcceptRequestMsg) returns (ConnectionStatusResponse);
+  rpc RejectConnectionRequest (RejectRequestMsg) returns (ConnectionStatusResponse);
+  rpc CancelConnectionRequest (CancelRequestMsg) returns (ConnectionStatusResponse);
+  rpc RemoveConnection (RemoveConnectionMsg) returns (ConnectionStatusResponse);
+  rpc GetConnections (GetConnectionsRequest) returns (GetConnectionsResponse);
+  rpc GetMutualConnections (GetMutualRequest) returns (GetConnectionsResponse);
+  rpc GetConnectionSuggestions (GetSuggestionsRequest) returns (GetConnectionsResponse);
+  rpc BlockUser (BlockUserRequest) returns (ConnectionStatusResponse);
+  rpc UnblockUser (BlockUserRequest) returns (ConnectionStatusResponse);
+  rpc CheckConnectionStatus (CheckStatusRequest) returns (CheckStatusResponse);
+}
+
+message SendRequestMsg {
+  string senderId = 1;
+  string receiverId = 2;
+}
+
+message AcceptRequestMsg {
+  string senderId = 1; // Sender of original request
+  string receiverId = 2; // Receiver of request (who accepts)
+}
+
+message RejectRequestMsg {
+  string senderId = 1;
+  string receiverId = 2;
+}
+
+message CancelRequestMsg {
+  string senderId = 1;
+  string receiverId = 2;
+}
+
+message RemoveConnectionMsg {
+  string userA = 1;
+  string userB = 2;
+}
+
+message ConnectionStatusResponse {
+  bool success = 1;
+  string status = 2; // PENDING, ACCEPTED, REJECTED, BLOCKED, NONE
+  string message = 3;
+}
+
+message GetConnectionsRequest {
+  string userId = 1;
+  string status = 2; // ACCEPTED or PENDING
+}
+
+message ConnectionNode {
+  string userId = 1;
+  string status = 2;
+  string firstName = 3;
+  string lastName = 4;
+  string headline = 5;
+  int32 degree = 6;
+}
+
+message GetConnectionsResponse {
+  repeated ConnectionNode connections = 1;
+}
+
+message GetMutualRequest {
+  string userA = 1;
+  string userB = 2;
+}
+
+message GetSuggestionsRequest {
+  string userId = 1;
+}
+
+message BlockUserRequest {
+  string blockerId = 1;
+  string blockedId = 2;
+}
+
+message CheckStatusRequest {
+  string userA = 1;
+  string userB = 2;
+}
+
+message CheckStatusResponse {
+  string status = 1; // NONE, PENDING, CONNECTED, BLOCKED
+}

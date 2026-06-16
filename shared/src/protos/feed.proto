@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package feed;
+
+service FeedService {
+  rpc CreatePost (CreatePostRequest) returns (Post);
+  rpc GetFeed (GetFeedRequest) returns (GetFeedResponse);
+  rpc UpdatePost (UpdatePostRequest) returns (Post);
+  rpc DeletePost (DeletePostRequest) returns (SuccessResponse);
+  rpc LikePost (LikePostRequest) returns (SuccessResponse);
+  rpc CommentPost (CommentPostRequest) returns (SuccessResponse);
+  rpc SharePost (SharePostRequest) returns (SuccessResponse);
+}
+
+message SuccessResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message Comment {
+  string id = 1;
+  string userId = 2;
+  string content = 3;
+  string createdAt = 4;
+}
+
+message Post {
+  string id = 1;
+  string authorId = 2;
+  string content = 3;
+  string mediaUrl = 4;
+  repeated string tags = 5;
+  int32 likesCount = 6;
+  repeated Comment comments = 7;
+  string createdAt = 8;
+}
+
+message CreatePostRequest {
+  string authorId = 1;
+  string content = 2;
+  string mediaUrl = 3;
+  repeated string tags = 4;
+}
+
+message GetFeedRequest {
+  string userId = 1;
+  int32 page = 2;
+  int32 limit = 3;
+}
+
+message GetFeedResponse {
+  repeated Post posts = 1;
+}
+
+message UpdatePostRequest {
+  string id = 1;
+  string authorId = 2;
+  string content = 3;
+  string mediaUrl = 4;
+  repeated string tags = 5;
+}
+
+message DeletePostRequest {
+  string id = 1;
+  string authorId = 2;
+}
+
+message LikePostRequest {
+  string postId = 1;
+  string userId = 2;
+}
+
+message CommentPostRequest {
+  string postId = 1;
+  string userId = 2;
+  string content = 3;
+}
+
+message SharePostRequest {
+  string postId = 1;
+  string userId = 2;
+}

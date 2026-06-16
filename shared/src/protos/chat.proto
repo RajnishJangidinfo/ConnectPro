@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package chat;
+
+service ChatService {
+  rpc CreateConversation (CreateConversationRequest) returns (Conversation);
+  rpc GetConversations (GetConversationsRequest) returns (GetConversationsResponse);
+  rpc SendMessage (SendMessageRequest) returns (Message);
+  rpc GetMessages (GetMessagesRequest) returns (GetMessagesResponse);
+  rpc MarkAsRead (MarkAsReadRequest) returns (SuccessResponse);
+}
+
+message SuccessResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message Participant {
+  string userId = 1;
+  string role = 2; // ADMIN, MODERATOR, MEMBER
+}
+
+message Conversation {
+  string id = 1;
+  bool isGroup = 2;
+  string groupName = 3;
+  string groupAvatar = 4;
+  repeated Participant participants = 5;
+  string lastMessageText = 6;
+  string lastMessageTime = 7;
+}
+
+message Message {
+  string id = 1;
+  string conversationId = 2;
+  string senderId = 3;
+  string content = 4;
+  string mediaUrl = 5;
+  string createdAt = 6;
+  repeated string readBy = 7;
+}
+
+message CreateConversationRequest {
+  bool isGroup = 1;
+  string groupName = 2;
+  string groupAvatar = 3;
+  repeated string participantIds = 4;
+}
+
+message GetConversationsRequest {
+  string userId = 1;
+}
+
+message GetConversationsResponse {
+  repeated Conversation conversations = 1;
+}
+
+message SendMessageRequest {
+  string conversationId = 1;
+  string senderId = 2;
+  string content = 3;
+  string mediaUrl = 4;
+}
+
+message GetMessagesRequest {
+  string conversationId = 1;
+  int32 limit = 2;
+  string beforeMessageId = 3;
+}
+
+message GetMessagesResponse {
+  repeated Message messages = 1;
+}
+
+message MarkAsReadRequest {
+  string conversationId = 1;
+  string userId = 2;
+}

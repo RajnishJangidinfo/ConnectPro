@@ -1,0 +1,33 @@
+{
+  "name": "connectpro-platform-root",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "services/gateway",
+    "services/profile-service",
+    "services/connection-service",
+    "services/feed-service",
+    "services/chat-service",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:gateway": "npm run dev --workspace=services/gateway",
+    "dev:profile": "npm run dev --workspace=services/profile-service",
+    "dev:connection": "npm run dev --workspace=services/connection-service",
+    "dev:feed": "npm run dev --workspace=services/feed-service",
+    "dev:chat": "npm run dev --workspace=services/chat-service",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "dev": "concurrently --kill-others \"npm run dev:gateway\" \"npm run dev:profile\" \"npm run dev:connection\" \"npm run dev:feed\" \"npm run dev:chat\" \"npm run dev:frontend\"",
+    "build:shared": "npm run build --workspace=shared",
+    "build:all": "npm run build --workspaces",
+    "test": "jest --config jest.config.js"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "concurrently": "^8.2.2",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.11",
+    "typescript": "^5.4.5"
+  }
+}
