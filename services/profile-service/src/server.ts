@@ -10,9 +10,33 @@ let isMongoConnected = false;
 
 const mongoUrl = process.env.MONGODB_URL || 'mongodb://localhost:27017/connectpro_profile';
 mongoose.connect(mongoUrl)
-  .then(() => {
+  .then(async () => {
     console.log('Profile MongoDB connected successfully');
     isMongoConnected = true;
+    try {
+      // Seed default profiles if MongoDB is connected but empty
+      const defaultUsers = [
+        { userId: 'sophia-reyes-uuid', username: 'sophia.reyes', firstName: 'Sophia', lastName: 'Reyes', headline: 'Head of Design at Stripe', location: 'San Francisco, CA' },
+        { userId: 'james-kim-uuid', username: 'james.kim', firstName: 'James', lastName: 'Kim', headline: 'CTO at NovaTech', location: 'New York, NY' },
+        { userId: 'leila-patel-uuid', username: 'leila.patel', firstName: 'Leila', lastName: 'Patel', headline: 'VP Product at Airbnb', location: 'Los Angeles, CA' },
+        { userId: 'alex-morgan-uuid', username: 'alex.morgan', firstName: 'Alex', lastName: 'Morgan', headline: 'Software Engineer', location: 'Seattle, WA' }
+      ];
+      for (const u of defaultUsers) {
+        const existing = await ProfileModel.findOne({ userId: u.userId });
+        if (!existing) {
+          await ProfileModel.create({
+            userId: u.userId,
+            username: u.username,
+            firstName: u.firstName,
+            lastName: u.lastName,
+            headline: u.headline,
+            bio: 'Hi, welcome to my profile!',
+            location: u.location,
+            privacy: { profileVisible: true, showViews: true, openToWork: false }
+          });
+        }
+      }
+    } catch (e) {}
   })
   .catch(err => {
     console.warn('\n⚠️ [DATABASE WARNING]: MongoDB is offline. Profile Service is falling back to IN-MEMORY profile store!\n');
@@ -25,7 +49,52 @@ const profileService = protoPackage.profile.ProfileService.service;
 const server = new grpc.Server();
 
 // In-Memory Profile Fallback Registry
-const memoryProfiles: any[] = [];
+const memoryProfiles: any[] = [
+  {
+    id: 'prof-sophia-reyes-uuid',
+    userId: 'sophia-reyes-uuid',
+    username: 'sophia.reyes',
+    firstName: 'Sophia',
+    lastName: 'Reyes',
+    headline: 'Head of Design at Stripe',
+    bio: 'Leading UI/UX teams at Stripe. Designer by day, developer by night.',
+    location: 'San Francisco, CA',
+    privacy: { profileVisible: true, showViews: true, openToWork: false }
+  },
+  {
+    id: 'prof-james-kim-uuid',
+    userId: 'james-kim-uuid',
+    username: 'james.kim',
+    firstName: 'James',
+    lastName: 'Kim',
+    headline: 'CTO at NovaTech',
+    bio: 'Technology executive interested in Web3 and AI architectures.',
+    location: 'New York, NY',
+    privacy: { profileVisible: true, showViews: true, openToWork: false }
+  },
+  {
+    id: 'prof-leila-patel-uuid',
+    userId: 'leila-patel-uuid',
+    username: 'leila.patel',
+    firstName: 'Leila',
+    lastName: 'Patel',
+    headline: 'VP Product at Airbnb',
+    bio: 'Passionate about travel, design systems, and scaling consumer marketplaces.',
+    location: 'Los Angeles, CA',
+    privacy: { profileVisible: true, showViews: true, openToWork: false }
+  },
+  {
+    id: 'prof-alex-morgan-uuid',
+    userId: 'alex-morgan-uuid',
+    username: 'alex.morgan',
+    firstName: 'Alex',
+    lastName: 'Morgan',
+    headline: 'Software Engineer',
+    bio: 'Building developer tools at Stripe. Open source maintainer.',
+    location: 'Seattle, WA',
+    privacy: { profileVisible: true, showViews: true, openToWork: false }
+  }
+];
 
 const MOCK_FIRST_NAMES = [
   'Emma', 'Liam', 'Olivia', 'Noah', 'Ava', 'Oliver', 'Sophia', 'Elijah', 
@@ -158,12 +227,11 @@ server.addService(profileService, {
       const { userId } = call.request;
 
       if (isMongoConnected && mongoose.connection.readyState === 1) {
-        const profile = await ProfileModel.findOne({ userId });
+        let profile = await ProfileModel.findOne({ userId });
         if (!profile) {
           // Return deterministic mock profile if not found in DB so demo flows stay populated
           const mockData = getDeterministicProfile(userId);
-          const defaultMock = {
-            id: `prof-${userId}`,
+          profile = await ProfileModel.create({
             userId,
             username: mockData.username,
             firstName: mockData.firstName,
@@ -172,16 +240,15 @@ server.addService(profileService, {
             bio: 'Hi, welcome to my profile!',
             location: mockData.location,
             privacy: { profileVisible: true, showViews: true, openToWork: false }
-          };
-          return callback(null, mapDbProfileToProto(defaultMock));
+          });
         }
         callback(null, mapDbProfileToProto(profile));
       } else {
-        const profile = memoryProfiles.find(p => p.userId === userId);
+        let profile = memoryProfiles.find(p => p.userId === userId);
         if (!profile) {
-          // Return deterministic mock profile if not found in memory
+          // Return deterministic mock profile if not found in memory, and save it to memory so it's searchable
           const mockData = getDeterministicProfile(userId);
-          const defaultMock = {
+          profile = {
             id: `prof-${userId}`,
             userId,
             username: mockData.username,
@@ -192,7 +259,7 @@ server.addService(profileService, {
             location: mockData.location,
             privacy: { profileVisible: true, showViews: true, openToWork: false }
           };
-          return callback(null, mapDbProfileToProto(defaultMock));
+          memoryProfiles.push(profile);
         }
         callback(null, mapDbProfileToProto(profile));
       }
