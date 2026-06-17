@@ -13,7 +13,7 @@ import {
   MapPin, Mail, X, CheckCircle, Briefcase, GraduationCap, Award, Info, Lock
 } from 'lucide-react';
 
-const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3002';
+const GATEWAY_URL = (process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3002').replace(/\/$/, '');
 const API_URL = `${GATEWAY_URL}/api/v1`;
 
 export default function ConnectProApp() {
@@ -156,7 +156,7 @@ export default function ConnectProApp() {
   useEffect(() => {
     if (!auth.token) return;
 
-    const socket = io('http://localhost:3002', {
+    const socket = io(GATEWAY_URL, {
       auth: { token: auth.token }
     });
     socketRef.current = socket;
