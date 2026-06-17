@@ -7,13 +7,14 @@ import { RootState } from '../store';
 import { setLoginSuccess, setLogout, updateLocalProfile } from '../store/authSlice';
 import { setConversations, setActiveConversationId, setMessages, addMessage, setTyping } from '../store/chatSlice';
 import { setPosts, addPost, toggleLikePost, addCommentToPost } from '../store/feedSlice';
-import { 
-  Home, Users, MessageSquare, Users2, Bell, Shield, LogOut, Search, Sun, Moon, 
-  Plus, Send, Paperclip, Image as ImageIcon, Mic, ThumbsUp, MessageCircle, Repeat, 
+import {
+  Home, Users, MessageSquare, Users2, Bell, Shield, LogOut, Search, Sun, Moon,
+  Plus, Send, Paperclip, Image as ImageIcon, Mic, ThumbsUp, MessageCircle, Repeat,
   MapPin, Mail, X, CheckCircle, Briefcase, GraduationCap, Award, Info, Lock
 } from 'lucide-react';
 
-const API_URL = 'http://localhost:3002/api/v1';
+const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3002';
+const API_URL = `${GATEWAY_URL}/api/v1`;
 
 export default function ConnectProApp() {
   const dispatch = useDispatch();
@@ -193,7 +194,7 @@ export default function ConnectProApp() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return showToast('Please enter credentials', 'warning');
-    
+
     try {
       const res = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
@@ -201,11 +202,11 @@ export default function ConnectProApp() {
         body: JSON.stringify({ email, password })
       });
       const data = await res.json();
-      
+
       if (!res.ok) {
         throw new Error(data.error || 'Login failed');
       }
-      
+
       dispatch(setLoginSuccess({
         token: data.token,
         user: data.user,
@@ -232,11 +233,11 @@ export default function ConnectProApp() {
         })
       });
       const data = await res.json();
-      
+
       if (!res.ok) {
         throw new Error(data.error || 'Registration failed');
       }
-      
+
       dispatch(setLoginSuccess({
         token: data.token,
         user: data.user,
@@ -265,7 +266,7 @@ export default function ConnectProApp() {
       if (res.ok) {
         dispatch(setPosts(data.posts || []));
       }
-    } catch (err) {}
+    } catch (err) { }
   };
 
   // Submit Post
@@ -293,7 +294,7 @@ export default function ConnectProApp() {
         setIsPostModalOpen(false);
         showToast('Post published successfully!', 'success');
       }
-    } catch (err) {}
+    } catch (err) { }
   };
 
   // Post Like
@@ -307,7 +308,7 @@ export default function ConnectProApp() {
         dispatch(toggleLikePost({ postId, userId: auth.user?.id || '' }));
         showToast('Liked post!', 'success');
       }
-    } catch (err) {}
+    } catch (err) { }
   };
 
   // Comment on Post
@@ -337,7 +338,7 @@ export default function ConnectProApp() {
         setCommentInputs(prev => ({ ...prev, [postId]: '' }));
         showToast('Comment added!', 'success');
       }
-    } catch (err) {}
+    } catch (err) { }
   };
 
   // Fetch Message Conversations
@@ -351,7 +352,7 @@ export default function ConnectProApp() {
       if (res.ok) {
         dispatch(setConversations(data.conversations || []));
       }
-    } catch (err) {}
+    } catch (err) { }
   };
 
   // Open Message Conversation Thread
@@ -372,7 +373,7 @@ export default function ConnectProApp() {
           headers: { 'Authorization': `Bearer ${auth.token}` }
         });
       }
-    } catch (err) {}
+    } catch (err) { }
   };
 
   // Send Chat Message
@@ -390,7 +391,7 @@ export default function ConnectProApp() {
       const data = await res.json();
       if (res.ok) {
         dispatch(addMessage(data));
-        
+
         if (socketRef.current) {
           socketRef.current.emit('chat_message', {
             conversationId: chat.activeConversationId,
@@ -402,7 +403,7 @@ export default function ConnectProApp() {
         setTypedMessage('');
         setIsTyping(false);
       }
-    } catch (err) {}
+    } catch (err) { }
   };
 
   // Handle Typing indicator triggers
@@ -434,7 +435,7 @@ export default function ConnectProApp() {
       });
       const pendingData = await pendingRes.json();
       if (pendingRes.ok) setPendingRequests(pendingData.connections || []);
-    } catch (err) {}
+    } catch (err) { }
   };
 
   const fetchSuggestions = async () => {
@@ -445,7 +446,7 @@ export default function ConnectProApp() {
       });
       const data = await res.json();
       if (res.ok) setSuggestions(data.suggestions || []);
-    } catch (err) {}
+    } catch (err) { }
   };
 
   const handleSendConnectionInvite = async (targetId: string) => {
@@ -465,7 +466,7 @@ export default function ConnectProApp() {
       } else {
         showToast(data.message || 'Failed to send request', 'warning');
       }
-    } catch (err) {}
+    } catch (err) { }
   };
 
   const handleAcceptConnection = async (senderId: string) => {
@@ -482,7 +483,7 @@ export default function ConnectProApp() {
         showToast('Connection accepted successfully!', 'success');
         fetchConnections();
       }
-    } catch (err) {}
+    } catch (err) { }
   };
 
   const handleSaveProfileUpdates = async () => {
@@ -507,7 +508,7 @@ export default function ConnectProApp() {
         showToast('Profile updated!', 'success');
         setIsEditProfileOpen(false);
       }
-    } catch (err) {}
+    } catch (err) { }
   };
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -548,7 +549,7 @@ export default function ConnectProApp() {
         setCurrentAppTab('messages');
         handleOpenConversation(data.id);
       }
-    } catch (err) {}
+    } catch (err) { }
   };
 
   const openProfileEditor = () => {
@@ -568,7 +569,7 @@ export default function ConnectProApp() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      
+
       {/* Toast notifications */}
       <div className="toast-container" id="toastContainer">
         {toasts.map(toast => (
@@ -582,7 +583,7 @@ export default function ConnectProApp() {
       {/* 1. AUTH PAGES LAYOUT */}
       {currentPage !== 'app' && (
         <div className="auth-shell">
-          
+
           {/* Left Decorative Branding Hero */}
           <div className="auth-hero">
             <div className="auth-logo" style={{ color: '#fff', fontSize: '1.4rem', marginBottom: '2rem' }}>
@@ -600,7 +601,7 @@ export default function ConnectProApp() {
 
           {/* Right Interactive Form Panel */}
           <div className="auth-form-panel" style={{ overflowY: 'auto' }}>
-            
+
             {/* LOGIN PANEL */}
             {currentPage === 'login' && (
               <form onSubmit={handleLogin}>
@@ -613,11 +614,11 @@ export default function ConnectProApp() {
 
                 <div className="oauth-row">
                   <button type="button" className="oauth-btn" onClick={() => showToast('Connecting to Google…', 'info')}>
-                    <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" /><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" /><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" /></svg>
                     Continue with Google
                   </button>
                   <button type="button" className="oauth-btn" onClick={() => showToast('Connecting to GitHub…', 'info')}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" /></svg>
                     Continue with GitHub
                   </button>
                 </div>
@@ -626,10 +627,10 @@ export default function ConnectProApp() {
 
                 <div className="form-group">
                   <label className="form-label">Email address</label>
-                  <input 
-                    type="email" 
-                    className="form-control" 
-                    placeholder="you@company.com" 
+                  <input
+                    type="email"
+                    className="form-control"
+                    placeholder="you@company.com"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                   />
@@ -639,10 +640,10 @@ export default function ConnectProApp() {
                     Password
                     <a onClick={() => setCurrentPage('forgot')} style={{ fontSize: '.78rem', textTransform: 'none', letterSpacing: 0 }}>Forgot password?</a>
                   </label>
-                  <input 
-                    type="password" 
-                    className="form-control" 
-                    placeholder="••••••••" 
+                  <input
+                    type="password"
+                    className="form-control"
+                    placeholder="••••••••"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                   />
@@ -668,20 +669,20 @@ export default function ConnectProApp() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.75rem' }}>
                   <div className="form-group">
                     <label className="form-label">First name</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="Alex" 
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Alex"
                       value={firstName}
                       onChange={e => setFirstName(e.target.value)}
                     />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Last name</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="Morgan" 
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Morgan"
                       value={lastName}
                       onChange={e => setLastName(e.target.value)}
                     />
@@ -689,40 +690,40 @@ export default function ConnectProApp() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Email address</label>
-                  <input 
-                    type="email" 
-                    className="form-control" 
-                    placeholder="alex@company.com" 
+                  <input
+                    type="email"
+                    className="form-control"
+                    placeholder="alex@company.com"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                   />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Password</label>
-                  <input 
-                    type="password" 
-                    className="form-control" 
-                    placeholder="8+ characters" 
+                  <input
+                    type="password"
+                    className="form-control"
+                    placeholder="8+ characters"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                   />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Job title</label>
-                  <input 
-                    type="text" 
-                    className="form-control" 
-                    placeholder="Senior Product Designer" 
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Senior Product Designer"
                     value={headline}
                     onChange={e => setHeadline(e.target.value)}
                   />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Location</label>
-                  <input 
-                    type="text" 
-                    className="form-control" 
-                    placeholder="San Francisco, CA" 
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="San Francisco, CA"
                     value={location}
                     onChange={e => setLocation(e.target.value)}
                   />
@@ -750,9 +751,9 @@ export default function ConnectProApp() {
                   <label className="form-label">Email address</label>
                   <input type="email" className="form-control" placeholder="you@company.com" />
                 </div>
-                <button 
-                  type="button" 
-                  className="btn btn-primary btn-block" 
+                <button
+                  type="button"
+                  className="btn btn-primary btn-block"
                   onClick={() => {
                     showToast('Reset link sent! Check your email.', 'success');
                     setCurrentPage('login');
@@ -773,7 +774,7 @@ export default function ConnectProApp() {
       {/* 2. MAIN APP SHELL */}
       {currentPage === 'app' && (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-          
+
           {/* Navigation */}
           <nav className="app-nav">
             <div className="nav-logo" onClick={() => setCurrentAppTab('feed')} style={{ cursor: 'pointer' }}>
@@ -782,9 +783,9 @@ export default function ConnectProApp() {
             </div>
             <div className="nav-search">
               <span className="nav-search-icon">🔍</span>
-              <input 
-                type="text" 
-                placeholder="Search by username..." 
+              <input
+                type="text"
+                placeholder="Search by username..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 onKeyDown={e => {
@@ -796,15 +797,15 @@ export default function ConnectProApp() {
               />
             </div>
             <nav className="nav-links">
-              <div 
-                className={`nav-link ${currentAppTab === 'feed' ? 'active' : ''}`} 
+              <div
+                className={`nav-link ${currentAppTab === 'feed' ? 'active' : ''}`}
                 onClick={() => setCurrentAppTab('feed')}
               >
                 <span style={{ fontSize: '1.2rem' }}>🏠</span>
                 <span>Feed</span>
               </div>
-              <div 
-                className={`nav-link ${currentAppTab === 'connections' ? 'active' : ''}`} 
+              <div
+                className={`nav-link ${currentAppTab === 'connections' ? 'active' : ''}`}
                 onClick={() => {
                   setCurrentAppTab('connections');
                   fetchConnections();
@@ -815,8 +816,8 @@ export default function ConnectProApp() {
                 <span>Network</span>
                 {pendingRequests.length > 0 && <span className="badge">{pendingRequests.length}</span>}
               </div>
-              <div 
-                className={`nav-link ${currentAppTab === 'messages' ? 'active' : ''}`} 
+              <div
+                className={`nav-link ${currentAppTab === 'messages' ? 'active' : ''}`}
                 onClick={() => {
                   setCurrentAppTab('messages');
                   fetchConversations();
@@ -826,15 +827,15 @@ export default function ConnectProApp() {
                 <span>Messages</span>
                 <span className="badge">5</span>
               </div>
-              <div 
-                className={`nav-link ${currentAppTab === 'groups' ? 'active' : ''}`} 
+              <div
+                className={`nav-link ${currentAppTab === 'groups' ? 'active' : ''}`}
                 onClick={() => setCurrentAppTab('groups')}
               >
                 <span style={{ fontSize: '1.2rem' }}>🏛️</span>
                 <span>Groups</span>
               </div>
-              <div 
-                className={`nav-link ${notifOpen ? 'active' : ''}`} 
+              <div
+                className={`nav-link ${notifOpen ? 'active' : ''}`}
                 onClick={() => setNotifOpen(!notifOpen)}
               >
                 <span style={{ fontSize: '1.2rem' }}>🔔</span>
@@ -843,15 +844,15 @@ export default function ConnectProApp() {
               </div>
               {auth.user?.role === 'ADMIN' && (
                 <>
-                  <div 
-                    className={`nav-link ${currentAppTab === 'admin' ? 'active' : ''}`} 
+                  <div
+                    className={`nav-link ${currentAppTab === 'admin' ? 'active' : ''}`}
                     onClick={() => setCurrentAppTab('admin')}
                   >
                     <span style={{ fontSize: '1.2rem' }}>⚙️</span>
                     <span>Admin</span>
                   </div>
-                  <div 
-                    className={`nav-link ${currentAppTab === 'logs' ? 'active' : ''}`} 
+                  <div
+                    className={`nav-link ${currentAppTab === 'logs' ? 'active' : ''}`}
                     onClick={() => setCurrentAppTab('logs')}
                   >
                     <span style={{ fontSize: '1.2rem' }}>📜</span>
@@ -859,8 +860,8 @@ export default function ConnectProApp() {
                   </div>
                 </>
               )}
-              <div 
-                className={`nav-avatar-btn ${currentAppTab === 'profile' ? 'active' : ''}`} 
+              <div
+                className={`nav-avatar-btn ${currentAppTab === 'profile' ? 'active' : ''}`}
                 onClick={() => setCurrentAppTab('profile')}
               >
                 <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: '.75rem' }}>
@@ -883,8 +884,8 @@ export default function ConnectProApp() {
             </div>
             <div>
               {notifications.map(n => (
-                <div 
-                  key={n.id} 
+                <div
+                  key={n.id}
                   className={`notif-item ${n.unread ? 'unread' : ''}`}
                   onClick={() => {
                     setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, unread: false } : item));
@@ -948,7 +949,7 @@ export default function ConnectProApp() {
                       <div className="composer-avatar">
                         {auth.profile?.firstName ? `${auth.profile.firstName[0]}${auth.profile.lastName[0]}` : 'CP'}
                       </div>
-                      <button 
+                      <button
                         onClick={() => setIsPostModalOpen(true)}
                         className="composer-input"
                       >
@@ -1005,8 +1006,8 @@ export default function ConnectProApp() {
 
                           {/* Fast actions controls */}
                           <div className="post-actions">
-                            <div 
-                              className={`post-action ${isLiked ? 'liked' : ''}`} 
+                            <div
+                              className={`post-action ${isLiked ? 'liked' : ''}`}
                               onClick={() => handleLike(post.id)}
                             >
                               👍 Like
@@ -1025,11 +1026,11 @@ export default function ConnectProApp() {
                           {/* Comments listing */}
                           <div style={{ padding: '1rem', background: 'var(--surface2)', borderTop: '1px solid var(--border)' }}>
                             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                              <input 
-                                type="text" 
+                              <input
+                                type="text"
                                 value={commentInputs[post.id] || ''}
                                 onChange={e => setCommentInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
-                                placeholder="Add a comment..." 
+                                placeholder="Add a comment..."
                                 className="form-control"
                                 style={{ fontSize: '0.82rem' }}
                                 onKeyDown={e => {
@@ -1071,7 +1072,7 @@ export default function ConnectProApp() {
                           <div className="suggestion-name">{sug.firstName} {sug.lastName}</div>
                           <div className="suggestion-meta" style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{sug.headline}</div>
                         </div>
-                        <button 
+                        <button
                           onClick={() => handleSendConnectionInvite(sug.userId)}
                           className="connect-btn"
                         >
@@ -1214,15 +1215,15 @@ export default function ConnectProApp() {
                   <div className="msg-list">
                     <div className="msg-list-header">
                       <h2>Messages</h2>
-                      <input 
-                        className="form-control" 
-                        style={{ fontSize: '0.82rem' }} 
-                        placeholder="Search conversations..." 
+                      <input
+                        className="form-control"
+                        style={{ fontSize: '0.82rem' }}
+                        placeholder="Search conversations..."
                       />
                     </div>
                     {chat.conversations.map(conv => (
-                      <div 
-                        key={conv.id} 
+                      <div
+                        key={conv.id}
                         onClick={() => handleOpenConversation(conv.id)}
                         className={`conv-item ${chat.activeConversationId === conv.id ? 'active' : ''}`}
                       >
@@ -1256,8 +1257,8 @@ export default function ConnectProApp() {
                           </div>
                           <div>
                             <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>
-                              {chat.conversations.find(c => c.id === chat.activeConversationId)?.isGroup ? 
-                                chat.conversations.find(c => c.id === chat.activeConversationId)?.groupName : 
+                              {chat.conversations.find(c => c.id === chat.activeConversationId)?.isGroup ?
+                                chat.conversations.find(c => c.id === chat.activeConversationId)?.groupName :
                                 `${chat.conversations.find(c => c.id === chat.activeConversationId)?.otherUser?.firstName} ${chat.conversations.find(c => c.id === chat.activeConversationId)?.otherUser?.lastName}`
                               }
                             </div>
@@ -1310,9 +1311,9 @@ export default function ConnectProApp() {
                         <div className="chat-input-row">
                           <button className="btn btn-ghost" style={{ fontSize: '1.1rem' }} onClick={() => showToast('Attach file', 'info')}>📎</button>
                           <button className="btn btn-ghost" style={{ fontSize: '1.1rem' }} onClick={() => showToast('Share image', 'info')}>🖼️</button>
-                          <input 
-                            className="chat-input" 
-                            placeholder="Write a message..." 
+                          <input
+                            className="chat-input"
+                            placeholder="Write a message..."
                             value={typedMessage}
                             onChange={handleTyping}
                             onKeyDown={e => {
@@ -1355,14 +1356,14 @@ export default function ConnectProApp() {
                           <span>🔒 {grp.type}</span>
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-                          <button 
+                          <button
                             type="button"
                             onClick={() => showToast(`Opening group workspace: ${grp.name}`, 'info')}
                             className="btn btn-primary btn-sm"
                           >
                             View
                           </button>
-                          <button 
+                          <button
                             type="button"
                             onClick={() => {
                               setMyGroups(prev => prev.filter(g => g.id !== grp.id));
@@ -1533,7 +1534,7 @@ export default function ConnectProApp() {
                   />
                   <button type="submit" className="btn btn-primary btn-sm">🔍 Search</button>
                 </form>
-                
+
                 <div className="space-y-4">
                   {searchPeople.map(person => {
                     const isSent = requestSentIds.has(person.userId);
@@ -1722,15 +1723,15 @@ export default function ConnectProApp() {
                     <p className="text-xs text-slate-450 mt-1">Real-time CRUD operation metrics and system logs.</p>
                   </div>
                   <div className="flex gap-2">
-                    <input 
-                      type="text" 
-                      placeholder="Search by action or email..." 
+                    <input
+                      type="text"
+                      placeholder="Search by action or email..."
                       value={logsSearchQuery}
                       onChange={e => setLogsSearchQuery(e.target.value)}
                       className="border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-blue-650 w-52"
                     />
-                    <button 
-                      onClick={fetchAuditLogs} 
+                    <button
+                      onClick={fetchAuditLogs}
                       className="bg-blue-650 hover:bg-blue-750 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl shadow transition"
                     >
                       🔄 Refresh
@@ -1767,7 +1768,7 @@ export default function ConnectProApp() {
                             if (log.action.includes("CREATE_POST") || log.action.includes("CREATE_GROUP")) badgeColor = "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400";
                             if (log.action.includes("CONNECTION")) badgeColor = "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-450";
                             if (log.action.includes("MESSAGE")) badgeColor = "bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-400";
-                            
+
                             return (
                               <tr key={log.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-850/50">
                                 <td className="p-3 text-slate-450 dark:text-slate-500 whitespace-nowrap">
@@ -1807,7 +1808,7 @@ export default function ConnectProApp() {
           </main>
 
           {/* 3. MODALS DIALOGS */}
-          
+
           {/* Post publishing modal */}
           {isPostModalOpen && (
             <div className="modal-overlay open flex items-center justify-center p-4">
@@ -1817,14 +1818,14 @@ export default function ConnectProApp() {
                   <button onClick={() => setIsPostModalOpen(false)} className="text-slate-400 hover:text-slate-650 p-1"><X className="w-5 h-5" /></button>
                 </div>
                 <div className="p-4 flex-1">
-                  <textarea 
+                  <textarea
                     value={postText}
                     onChange={e => setPostText(e.target.value)}
                     placeholder="What's on your mind? Share an insight, token, or project update..."
                     className="w-full h-32 text-slate-800 dark:text-slate-200 placeholder-slate-400 border-0 outline-none resize-none text-xs sm:text-sm leading-relaxed bg-transparent"
                   />
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={postMedia}
                     onChange={e => setPostMedia(e.target.value)}
                     placeholder="Attach an image URL (optional)..."
@@ -1850,26 +1851,26 @@ export default function ConnectProApp() {
                 <div className="p-4 space-y-4">
                   <div className="space-y-1">
                     <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider">Group name</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={groupName}
                       onChange={e => setGroupName(e.target.value)}
-                      placeholder="e.g. UX Researchers Community" 
+                      placeholder="e.g. UX Researchers Community"
                       className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-650"
                     />
                   </div>
                   <div className="space-y-1">
                     <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider">Description</label>
-                    <textarea 
+                    <textarea
                       value={groupDescription}
                       onChange={e => setGroupDescription(e.target.value)}
-                      placeholder="Describe what this community is about..." 
+                      placeholder="Describe what this community is about..."
                       className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-650 h-20 resize-none"
                     />
                   </div>
                   <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
                     <button onClick={() => setIsGroupModalOpen(false)} className="text-slate-500 font-bold text-xs px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-xl">Cancel</button>
-                    <button 
+                    <button
                       onClick={() => {
                         if (!groupName) return;
                         setMyGroups(prev => [...prev, {
@@ -1908,8 +1909,8 @@ export default function ConnectProApp() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider">First name</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={editFirstName}
                         onChange={e => setEditFirstName(e.target.value)}
                         className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-650"
@@ -1917,8 +1918,8 @@ export default function ConnectProApp() {
                     </div>
                     <div className="space-y-1">
                       <label className="block text-[10px] font-bold text-slate-455 uppercase tracking-wider">Last name</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={editLastName}
                         onChange={e => setEditLastName(e.target.value)}
                         className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-655"
@@ -1927,8 +1928,8 @@ export default function ConnectProApp() {
                   </div>
                   <div className="space-y-1">
                     <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider">Headline</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={editHeadline}
                       onChange={e => setEditHeadline(e.target.value)}
                       className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-650"
@@ -1936,8 +1937,8 @@ export default function ConnectProApp() {
                   </div>
                   <div className="space-y-1">
                     <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider">Location</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={editLocation}
                       onChange={e => setEditLocation(e.target.value)}
                       className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-650"
@@ -1945,7 +1946,7 @@ export default function ConnectProApp() {
                   </div>
                   <div className="space-y-1">
                     <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider">About / Summary</label>
-                    <textarea 
+                    <textarea
                       value={editBio}
                       onChange={e => setEditBio(e.target.value)}
                       className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-650 h-24 resize-none"

@@ -14,6 +14,7 @@ export interface IPost {
   mediaUrl: string;
   tags: string[];
   likesCount: number;
+  likes?: string[];
   comments: IComment[];
   createdAt: string;
   authorName: string;
