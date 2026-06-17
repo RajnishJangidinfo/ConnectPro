@@ -59,6 +59,10 @@ mongoose_1.default.connect(mongoUrl)
 // Connect to Redis
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 const redis = new ioredis_1.default(redisUrl, { lazyConnect: true });
+redis.on('error', (err) => {
+    console.warn('Redis connection error:', err.message);
+    isRedisConnected = false;
+});
 redis.connect()
     .then(() => {
     console.log('Feed Service Redis connected');
@@ -313,7 +317,7 @@ server.addService(feedServiceDef, {
         }
     }
 });
-const PORT = process.env.PORT || '50053';
+const PORT = process.env.FEED_PORT || '50053';
 server.bindAsync(`0.0.0.0:${PORT}`, grpc.ServerCredentials.createInsecure(), (err, port) => {
     if (err) {
         console.error('Failed to bind gRPC Feed Service:', err);

@@ -356,7 +356,7 @@ server.addService(profileService, {
         }
     }
 });
-const PORT = process.env.PORT || '50051';
+const PORT = process.env.PROFILE_PORT || '50051';
 server.bindAsync(`0.0.0.0:${PORT}`, grpc.ServerCredentials.createInsecure(), (err, port) => {
     if (err) {
         console.error('Failed to bind gRPC Profile Service:', err);

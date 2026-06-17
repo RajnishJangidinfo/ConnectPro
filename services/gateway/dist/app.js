@@ -97,6 +97,17 @@ connectDb();
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
 // ----------------------------------------------------
+// HEALTH CHECK / ROOT ENDPOINT
+// ----------------------------------------------------
+app.get('/', (req, res) => {
+    res.status(200).json({
+        status: 'online',
+        service: 'ConnectPro API Gateway',
+        environment: process.env.NODE_ENV || 'production',
+        timestamp: new Date().toISOString()
+    });
+});
+// ----------------------------------------------------
 // AUTH & ACCOUNT REST ENDPOINTS
 // ----------------------------------------------------
 app.post('/api/v1/auth/register', async (req, res) => {

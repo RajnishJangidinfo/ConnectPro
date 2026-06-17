@@ -277,7 +277,7 @@ server.addService(chatServiceDef, {
         }
     }
 });
-const PORT = process.env.PORT || '50054';
+const PORT = process.env.CHAT_PORT || '50054';
 server.bindAsync(`0.0.0.0:${PORT}`, grpc.ServerCredentials.createInsecure(), (err, port) => {
     if (err) {
         console.error('Failed to bind gRPC Chat Service:', err);
