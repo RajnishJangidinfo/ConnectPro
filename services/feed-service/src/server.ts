@@ -25,6 +25,10 @@ mongoose.connect(mongoUrl)
 // Connect to Redis
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 const redis = new Redis(redisUrl, { lazyConnect: true });
+redis.on('error', (err) => {
+  console.warn('Redis connection error:', err.message);
+  isRedisConnected = false;
+});
 redis.connect()
   .then(() => {
     console.log('Feed Service Redis connected');
