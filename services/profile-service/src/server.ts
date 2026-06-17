@@ -27,6 +27,87 @@ const server = new grpc.Server();
 // In-Memory Profile Fallback Registry
 const memoryProfiles: any[] = [];
 
+const MOCK_FIRST_NAMES = [
+  'Emma', 'Liam', 'Olivia', 'Noah', 'Ava', 'Oliver', 'Sophia', 'Elijah', 
+  'Isabella', 'James', 'Amelia', 'Benjamin', 'Mia', 'Lucas', 'Charlotte', 'Mason',
+  'Harper', 'Ethan', 'Evelyn', 'Alexander', 'Abigail', 'Henry', 'Emily', 'Jacob'
+];
+const MOCK_LAST_NAMES = [
+  'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis',
+  'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson', 'Thomas',
+  'Taylor', 'Moore', 'Jackson', 'Martin', 'Lee', 'Perez', 'Thompson', 'White'
+];
+const MOCK_HEADLINES = [
+  'Software Engineer at Google',
+  'Product Manager at Meta',
+  'UX Designer at Apple',
+  'Data Scientist at Netflix',
+  'Engineering Manager at Uber',
+  'Solutions Architect at AWS',
+  'Full Stack Developer at Stripe',
+  'Frontend Engineer at Vercel',
+  'Backend Developer at Microsoft',
+  'Mobile Engineer at Spotify',
+  'VP of Engineering at OpenAI',
+  'DevOps Architect at Salesforce'
+];
+const MOCK_LOCATIONS = [
+  'San Francisco, CA', 'New York, NY', 'Seattle, WA', 'Austin, TX',
+  'Boston, MA', 'Denver, CO', 'Chicago, IL', 'Los Angeles, CA',
+  'London, UK', 'Berlin, Germany', 'Toronto, Canada', 'Sydney, Australia'
+];
+
+const getDeterministicProfile = (userId: string) => {
+  if (userId.includes('sophia')) {
+    return {
+      firstName: 'Sophia',
+      lastName: 'Reyes',
+      headline: 'Head of Design at Stripe',
+      username: 'sophia.reyes',
+      location: 'San Francisco, CA'
+    };
+  }
+  if (userId.includes('james')) {
+    return {
+      firstName: 'James',
+      lastName: 'Kim',
+      headline: 'CTO at NovaTech',
+      username: 'james.kim',
+      location: 'New York, NY'
+    };
+  }
+  if (userId.includes('leila')) {
+    return {
+      firstName: 'Leila',
+      lastName: 'Patel',
+      headline: 'VP Product at Airbnb',
+      username: 'leila.patel',
+      location: 'Los Angeles, CA'
+    };
+  }
+  if (userId.includes('alex')) {
+    return {
+      firstName: 'Alex',
+      lastName: 'Morgan',
+      headline: 'Software Engineer',
+      username: 'alex.morgan',
+      location: 'Seattle, WA'
+    };
+  }
+
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) {
+    hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash);
+  const firstName = MOCK_FIRST_NAMES[index % MOCK_FIRST_NAMES.length];
+  const lastName = MOCK_LAST_NAMES[index % MOCK_LAST_NAMES.length];
+  const headline = MOCK_HEADLINES[(index + 3) % MOCK_HEADLINES.length];
+  const location = MOCK_LOCATIONS[(index + 7) % MOCK_LOCATIONS.length];
+  const username = `${firstName.toLowerCase()}.${lastName.toLowerCase()}`;
+  return { firstName, lastName, headline, username, location };
+};
+
 const mapDbProfileToProto = (profile: any) => {
   return {
     id: profile._id?.toString() || profile.id || 'mock-id',
@@ -79,23 +160,36 @@ server.addService(profileService, {
       if (isMongoConnected && mongoose.connection.readyState === 1) {
         const profile = await ProfileModel.findOne({ userId });
         if (!profile) {
-          return callback({ code: grpc.status.NOT_FOUND, message: 'Profile not found' });
+          // Return deterministic mock profile if not found in DB so demo flows stay populated
+          const mockData = getDeterministicProfile(userId);
+          const defaultMock = {
+            id: `prof-${userId}`,
+            userId,
+            username: mockData.username,
+            firstName: mockData.firstName,
+            lastName: mockData.lastName,
+            headline: mockData.headline,
+            bio: 'Hi, welcome to my profile!',
+            location: mockData.location,
+            privacy: { profileVisible: true, showViews: true, openToWork: false }
+          };
+          return callback(null, mapDbProfileToProto(defaultMock));
         }
         callback(null, mapDbProfileToProto(profile));
       } else {
         const profile = memoryProfiles.find(p => p.userId === userId);
         if (!profile) {
-          // Return default mock profile if requested from feed initially
-          const defaultUsername = userId.includes('sophia') ? 'sophia.reyes' : userId.includes('james') ? 'james.kim' : userId.includes('leila') ? 'leila.patel' : 'member.user';
+          // Return deterministic mock profile if not found in memory
+          const mockData = getDeterministicProfile(userId);
           const defaultMock = {
             id: `prof-${userId}`,
             userId,
-            username: defaultUsername,
-            firstName: userId.includes('sophia') ? 'Sophia' : userId.includes('james') ? 'James' : userId.includes('leila') ? 'Leila' : 'Member',
-            lastName: userId.includes('sophia') ? 'Reyes' : userId.includes('james') ? 'Kim' : userId.includes('leila') ? 'Patel' : 'User',
-            headline: userId.includes('sophia') ? 'Head of Design at Stripe' : userId.includes('james') ? 'CTO at NovaTech' : userId.includes('leila') ? 'VP Product at Airbnb' : 'ConnectPro Member',
+            username: mockData.username,
+            firstName: mockData.firstName,
+            lastName: mockData.lastName,
+            headline: mockData.headline,
             bio: 'Hi, welcome to my profile!',
-            location: 'San Francisco, CA',
+            location: mockData.location,
             privacy: { profileVisible: true, showViews: true, openToWork: false }
           };
           return callback(null, mapDbProfileToProto(defaultMock));
@@ -218,10 +312,15 @@ server.addService(profileService, {
         let profile = memoryProfiles.find(p => p.userId === userId);
         if (!profile) {
           // Create default and insert
+          const mockData = getDeterministicProfile(userId);
           profile = {
             id: `prof-${userId}`,
-            userId, firstName: firstName || 'Member', lastName: lastName || 'User',
-            headline: headline || 'ConnectPro Professional', bio: bio || '', location: location || '',
+            userId, 
+            firstName: firstName || mockData.firstName, 
+            lastName: lastName || mockData.lastName,
+            headline: headline || mockData.headline, 
+            bio: bio || '', 
+            location: location || mockData.location,
             skills: [], workExperience: [], education: [],
             privacy: { profileVisible: true, showViews: true, openToWork: false }
           };

@@ -96,6 +96,47 @@ const connectDb = async () => {
 connectDb();
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
+const MOCK_FIRST_NAMES = [
+    'Emma', 'Liam', 'Olivia', 'Noah', 'Ava', 'Oliver', 'Sophia', 'Elijah',
+    'Isabella', 'James', 'Amelia', 'Benjamin', 'Mia', 'Lucas', 'Charlotte', 'Mason'
+];
+const MOCK_LAST_NAMES = [
+    'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis',
+    'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson'
+];
+const MOCK_HEADLINES = [
+    'Software Engineer at Google',
+    'Product Manager at Meta',
+    'UX Designer at Apple',
+    'Data Scientist at Netflix',
+    'Engineering Manager at Uber',
+    'Solutions Architect at AWS',
+    'Full Stack Developer at Stripe',
+    'Frontend Engineer at Vercel'
+];
+const getDeterministicGatewayProfile = (userId) => {
+    if (userId.includes('sophia')) {
+        return { firstName: 'Sophia', lastName: 'Reyes', headline: 'Head of Design at Stripe' };
+    }
+    if (userId.includes('james')) {
+        return { firstName: 'James', lastName: 'Kim', headline: 'CTO at NovaTech' };
+    }
+    if (userId.includes('leila')) {
+        return { firstName: 'Leila', lastName: 'Patel', headline: 'VP Product at Airbnb' };
+    }
+    if (userId.includes('alex')) {
+        return { firstName: 'Alex', lastName: 'Morgan', headline: 'Software Engineer' };
+    }
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) {
+        hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash);
+    const firstName = MOCK_FIRST_NAMES[index % MOCK_FIRST_NAMES.length];
+    const lastName = MOCK_LAST_NAMES[index % MOCK_LAST_NAMES.length];
+    const headline = MOCK_HEADLINES[(index + 3) % MOCK_HEADLINES.length];
+    return { firstName, lastName, headline };
+};
 // ----------------------------------------------------
 // HEALTH CHECK / ROOT ENDPOINT
 // ----------------------------------------------------
@@ -391,11 +432,12 @@ app.get('/api/v1/connections', auth_1.authenticateJWT, (req, res) => {
         const populatedConnections = [];
         connections.forEach((conn) => {
             grpc_clients_1.profileClient.getProfile({ userId: conn.userId }, (profErr, prof) => {
+                const fallback = getDeterministicGatewayProfile(conn.userId);
                 populatedConnections.push({
                     ...conn,
-                    firstName: prof?.firstName || 'ConnectPro',
-                    lastName: prof?.lastName || 'Member',
-                    headline: prof?.headline || 'Professional Member'
+                    firstName: prof?.firstName || fallback.firstName,
+                    lastName: prof?.lastName || fallback.lastName,
+                    headline: prof?.headline || fallback.headline
                 });
                 completed++;
                 if (completed === connections.length) {
@@ -491,10 +533,11 @@ app.get('/api/v1/posts', auth_1.authenticateJWT, (req, res) => {
         const populatedPosts = [];
         posts.forEach((post) => {
             grpc_clients_1.profileClient.getProfile({ userId: post.authorId }, (profErr, prof) => {
+                const fallback = getDeterministicGatewayProfile(post.authorId);
                 populatedPosts.push({
                     ...post,
-                    authorName: prof ? `${prof.firstName} ${prof.lastName}` : 'ConnectPro Member',
-                    authorHeadline: prof?.headline || 'Professional Network Member',
+                    authorName: prof ? `${prof.firstName} ${prof.lastName}` : `${fallback.firstName} ${fallback.lastName}`,
+                    authorHeadline: prof?.headline || fallback.headline,
                     authorAvatar: prof?.profilePicture || ''
                 });
                 completed++;

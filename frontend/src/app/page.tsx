@@ -1133,11 +1133,20 @@ export default function ConnectProApp() {
                           <div className="connection-banner"></div>
                           <div className="connection-body">
                             <div className="connection-avatar">
-                              {conn.firstName[0]}{conn.lastName[0]}
+                              {conn.firstName ? conn.firstName[0] : ''}{conn.lastName ? conn.lastName[0] : ''}
                             </div>
-                            <div className="connection-name">{conn.firstName} {conn.lastName}</div>
-                            <div className="connection-title">{conn.headline}</div>
-                            <div className="connection-mutual">12 mutual connections</div>
+                            <div className="connection-name">{conn.firstName || 'ConnectPro'} {conn.lastName || 'Member'}</div>
+                            <div className="connection-title">{conn.headline || 'Professional Member'}</div>
+                            <div className="connection-mutual">
+                              {(() => {
+                                let hash = 0;
+                                const idStr = conn.userId || '';
+                                for (let i = 0; i < idStr.length; i++) {
+                                  hash = idStr.charCodeAt(i) + ((hash << 5) - hash);
+                                }
+                                return (Math.abs(hash) % 18) + 2;
+                              })()} mutual connections
+                            </div>
                             <div className="connection-actions">
                               <button className="btn btn-outline btn-sm" onClick={() => handleDirectDM(conn.userId)}>💬</button>
                               <button className="btn btn-primary btn-sm" onClick={() => showToast(`Viewing profile of ${conn.firstName}`, 'info')}>View</button>
