@@ -469,7 +469,7 @@ server.addService(connectionService, {
   }
 });
 
-const PORT = process.env.PORT || '50052';
+const PORT = process.env.CONNECTION_PORT || '50052';
 server.bindAsync(`0.0.0.0:${PORT}`, grpc.ServerCredentials.createInsecure(), (err, port) => {
   if (err) {
     console.error('Failed to bind gRPC Connection Service:', err);

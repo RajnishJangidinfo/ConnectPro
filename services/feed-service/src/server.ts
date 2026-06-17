@@ -282,7 +282,7 @@ server.addService(feedServiceDef, {
   }
 });
 
-const PORT = process.env.PORT || '50053';
+const PORT = process.env.FEED_PORT || '50053';
 server.bindAsync(`0.0.0.0:${PORT}`, grpc.ServerCredentials.createInsecure(), (err, port) => {
   if (err) {
     console.error('Failed to bind gRPC Feed Service:', err);
