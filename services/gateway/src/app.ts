@@ -85,6 +85,18 @@ app.use(cors());
 app.use(express.json());
 
 // ----------------------------------------------------
+// HEALTH CHECK / ROOT ENDPOINT
+// ----------------------------------------------------
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'online',
+    service: 'ConnectPro API Gateway',
+    environment: process.env.NODE_ENV || 'production',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ----------------------------------------------------
 // AUTH & ACCOUNT REST ENDPOINTS
 // ----------------------------------------------------
 
