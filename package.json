@@ -21,6 +21,12 @@
     "dev": "concurrently --kill-others \"npm run dev:gateway\" \"npm run dev:profile\" \"npm run dev:connection\" \"npm run dev:feed\" \"npm run dev:chat\" \"npm run dev:frontend\"",
     "build:shared": "npm run build --workspace=shared",
     "build:all": "npm run build --workspaces",
+    "start:gateway": "node services/gateway/dist/app.js",
+    "start:profile": "node services/profile-service/dist/server.js",
+    "start:connection": "node services/connection-service/dist/server.js",
+    "start:feed": "node services/feed-service/dist/server.js",
+    "start:chat": "node services/chat-service/dist/server.js",
+    "start": "concurrently --kill-others \"npm run start:gateway\" \"npm run start:profile\" \"npm run start:connection\" \"npm run start:feed\" \"npm run start:chat\"",
     "test": "jest --config jest.config.js"
   },
   "devDependencies": {
