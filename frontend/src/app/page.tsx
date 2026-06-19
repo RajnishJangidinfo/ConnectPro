@@ -10,7 +10,7 @@ import { setPosts, addPost, toggleLikePost, addCommentToPost } from '../store/fe
 import {
   Home, Users, MessageSquare, Users2, Bell, Shield, LogOut, Search, Sun, Moon,
   Plus, Send, Paperclip, Image as ImageIcon, Mic, ThumbsUp, MessageCircle, Repeat,
-  MapPin, Mail, X, CheckCircle, Briefcase, GraduationCap, Award, Info, Lock
+  MapPin, Mail, X, CheckCircle, Briefcase, GraduationCap, Award, Info, Lock, Copy
 } from 'lucide-react';
 
 const GATEWAY_URL = (process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3002').replace(/\/$/, '');
@@ -2256,18 +2256,18 @@ export default function ConnectProApp() {
                     value={postText}
                     onChange={e => setPostText(e.target.value)}
                     placeholder="What's on your mind? Share an insight, token, or project update..."
-                    className="w-full h-32 text-slate-850 dark:text-slate-200 placeholder-slate-400 border-0 outline-none resize-none text-xs sm:text-sm leading-relaxed bg-transparent"
+                    className="form-control h-32"
                   />
                   <input
                     type="text"
                     value={postMedia}
                     onChange={e => setPostMedia(e.target.value)}
                     placeholder="Attach an image URL (optional)..."
-                    className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-650 focus:bg-white transition"
+                    className="form-control"
                   />
                   <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-                    <button onClick={() => setIsPostModalOpen(false)} className="text-slate-500 font-bold text-xs px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-xl">Discard</button>
-                    <button onClick={handlePublishPost} className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow transition">Publish</button>
+                    <button onClick={() => setIsPostModalOpen(false)} className="btn btn-outline btn-sm">Discard</button>
+                    <button onClick={handlePublishPost} className="btn btn-primary btn-sm">Publish</button>
                   </div>
                 </div>
               </div>
@@ -2285,27 +2285,27 @@ export default function ConnectProApp() {
                   <button onClick={() => setIsGroupModalOpen(false)} className="modal-close"><X className="w-4 h-4" /></button>
                 </div>
                 <div className="modal-body space-y-4">
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider">Group name</label>
+                  <div className="form-group">
+                    <label className="form-label">Group name</label>
                     <input
                       type="text"
                       value={groupName}
                       onChange={e => setGroupName(e.target.value)}
                       placeholder="e.g. UX Researchers Community"
-                      className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-650"
+                      className="form-control"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider">Description</label>
+                  <div className="form-group">
+                    <label className="form-label">Description</label>
                     <textarea
                       value={groupDescription}
                       onChange={e => setGroupDescription(e.target.value)}
                       placeholder="Describe what this community is about..."
-                      className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-650 h-20 resize-none"
+                      className="form-control h-20 resize-none"
                     />
                   </div>
                   <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-                    <button onClick={() => setIsGroupModalOpen(false)} className="text-slate-500 font-bold text-xs px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-xl">Cancel</button>
+                    <button onClick={() => setIsGroupModalOpen(false)} className="btn btn-outline btn-sm">Cancel</button>
                     <button
                       onClick={() => {
                         if (!groupName) return;
@@ -2323,7 +2323,7 @@ export default function ConnectProApp() {
                         setIsGroupModalOpen(false);
                         showToast('Collaboration Group created!', 'success');
                       }}
-                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow"
+                      className="btn btn-primary btn-sm"
                     >
                       Create
                     </button>
@@ -2345,54 +2345,54 @@ export default function ConnectProApp() {
                 </div>
                 <div className="modal-body space-y-4" style={{ maxHeight: '420px', overflowY: 'auto' }}>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider">First name</label>
+                    <div className="form-group">
+                      <label className="form-label">First name</label>
                       <input
                         type="text"
                         value={editFirstName}
                         onChange={e => setEditFirstName(e.target.value)}
-                        className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-650"
+                        className="form-control"
                       />
                     </div>
-                    <div className="space-y-1">
-                      <label className="block text-[10px] font-bold text-slate-455 uppercase tracking-wider">Last name</label>
+                    <div className="form-group">
+                      <label className="form-label">Last name</label>
                       <input
                         type="text"
                         value={editLastName}
                         onChange={e => setEditLastName(e.target.value)}
-                        className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-655"
+                        className="form-control"
                       />
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider">Headline</label>
+                  <div className="form-group">
+                    <label className="form-label">Headline</label>
                     <input
                       type="text"
                       value={editHeadline}
                       onChange={e => setEditHeadline(e.target.value)}
-                      className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-650"
+                      className="form-control"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider">Location</label>
+                  <div className="form-group">
+                    <label className="form-label">Location</label>
                     <input
                       type="text"
                       value={editLocation}
                       onChange={e => setEditLocation(e.target.value)}
-                      className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-650"
+                      className="form-control"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider">About / Summary</label>
+                  <div className="form-group">
+                    <label className="form-label">About / Summary</label>
                     <textarea
                       value={editBio}
                       onChange={e => setEditBio(e.target.value)}
-                      className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-650 h-24 resize-none"
+                      className="form-control h-24 resize-none"
                     />
                   </div>
                   <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-                    <button onClick={() => setIsEditProfileOpen(false)} className="text-slate-500 font-bold text-xs px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-xl">Discard</button>
-                    <button onClick={handleSaveProfileUpdates} className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow transition">Save changes</button>
+                    <button onClick={() => setIsEditProfileOpen(false)} className="btn btn-outline btn-sm">Discard</button>
+                    <button onClick={handleSaveProfileUpdates} className="btn btn-primary btn-sm">Save changes</button>
                   </div>
                 </div>
               </div>
@@ -2409,55 +2409,110 @@ export default function ConnectProApp() {
                   </div>
                   <button onClick={() => setShowCheckUserModal(false)} className="modal-close"><X className="w-4 h-4" /></button>
                 </div>
-                <div className="modal-body space-y-4 text-slate-700 dark:text-slate-200">
-                  <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '0.5rem' }}>
-                    <strong>User ID:</strong>
-                    <span className="font-mono bg-slate-100 dark:bg-slate-850 px-1 py-0.5 rounded text-xs select-all">{selectedCheckUser.id}</span>
-
-                    <strong>Email:</strong>
-                    <span className="font-semibold">{selectedCheckUser.email}</span>
-
-                    <strong>Full Name:</strong>
-                    <span>{selectedCheckUser.firstName || selectedCheckUser.lastName ? `${selectedCheckUser.firstName} ${selectedCheckUser.lastName}`.trim() : 'N/A'}</span>
-
-                    <strong>Headline:</strong>
-                    <span>{selectedCheckUser.headline || 'N/A'}</span>
-
-                    <strong>Location:</strong>
-                    <span>{selectedCheckUser.location || 'N/A'}</span>
-
-                    <strong>Role:</strong>
-                    <span className="font-bold text-amber-650 dark:text-amber-450">{selectedCheckUser.role}</span>
-
-                    <strong>Status:</strong>
-                    <span>{selectedCheckUser.isActive === false ? '🚫 Deactivated' : '✅ Active'}</span>
-
-                    <strong>Password Hash:</strong>
-                    <span className="font-mono bg-slate-100 dark:bg-slate-850 px-1 py-0.5 rounded text-xs select-all break-all">{selectedCheckUser.passwordHash || 'N/A'}</span>
+                <div className="modal-body space-y-6">
+                  {/* Status & Role Badges */}
+                  <div className="flex gap-2 items-center flex-wrap pb-2 border-b border-slate-100 dark:border-slate-800">
+                    <span className={`badge ${selectedCheckUser.role === 'SUPER_ADMIN' ? 'badge-danger' : selectedCheckUser.role === 'ADMIN' ? 'badge-warning' : 'badge-primary'}`}>
+                      🛡️ {selectedCheckUser.role}
+                    </span>
+                    <span className={`badge ${selectedCheckUser.isActive === false ? 'badge-danger' : 'badge-success'}`}>
+                      {selectedCheckUser.isActive === false ? '🚫 Deactivated' : '✅ Active'}
+                    </span>
                   </div>
 
-                  <div className="border-t border-slate-150 dark:border-slate-800 pt-4 mt-2">
-                    <h4 className="font-bold text-xs uppercase tracking-wider text-slate-450 mb-3">Reset User Password Directly</h4>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <input
-                        type="text"
-                        value={adminNewPassword}
-                        onChange={e => setAdminNewPassword(e.target.value)}
-                        placeholder="Enter new password..."
-                        className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-650"
-                      />
+                  {/* Details Grid */}
+                  <div className="credential-grid">
+                    <div className="credential-card">
+                      <span className="credential-label">Full Name</span>
+                      <span className="credential-value">{selectedCheckUser.firstName || selectedCheckUser.lastName ? `${selectedCheckUser.firstName} ${selectedCheckUser.lastName}`.trim() : 'N/A'}</span>
+                    </div>
+
+                    <div className="credential-card">
+                      <span className="credential-label">Email Address</span>
+                      <span className="credential-value font-mono text-xs truncate" title={selectedCheckUser.email}>{selectedCheckUser.email}</span>
+                    </div>
+
+                    <div className="credential-card">
+                      <span className="credential-label">Headline</span>
+                      <span className="credential-value text-xs line-clamp-1" title={selectedCheckUser.headline || 'N/A'}>{selectedCheckUser.headline || 'N/A'}</span>
+                    </div>
+
+                    <div className="credential-card">
+                      <span className="credential-label">Location</span>
+                      <span className="credential-value text-xs">📍 {selectedCheckUser.location || 'N/A'}</span>
+                    </div>
+                  </div>
+
+                  {/* Sensitive Credentials Blocks */}
+                  <div className="space-y-3 bg-slate-50/50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                    <h4 className="font-extrabold text-xs uppercase tracking-wider text-slate-450 mb-1">Database Credentials</h4>
+                    
+                    <div className="space-y-1">
+                      <span className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider">User ID</span>
+                      <div className="mono-block">
+                        <span className="truncate select-all font-mono">{selectedCheckUser.id}</span>
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText(selectedCheckUser.id);
+                            showToast('Copied User ID!', 'success');
+                          }}
+                          className="btn-copy"
+                          title="Copy ID"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider">Bcrypt Password Hash</span>
+                      <div className="mono-block">
+                        <span className="truncate select-all font-mono">{selectedCheckUser.passwordHash || 'N/A'}</span>
+                        <button 
+                          onClick={() => {
+                            if (selectedCheckUser.passwordHash) {
+                              navigator.clipboard.writeText(selectedCheckUser.passwordHash);
+                              showToast('Copied Password Hash!', 'success');
+                            } else {
+                              showToast('No hash available to copy', 'warning');
+                            }
+                          }}
+                          className="btn-copy"
+                          disabled={!selectedCheckUser.passwordHash}
+                          title="Copy Hash"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Password Reset form */}
+                  <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
+                    <h4 className="font-bold text-xs uppercase tracking-wider text-slate-400 mb-2">Reset User Password Directly</h4>
+                    <div className="flex gap-2 items-center">
+                      <div className="relative flex-1">
+                        <input
+                          type="text"
+                          value={adminNewPassword}
+                          onChange={e => setAdminNewPassword(e.target.value)}
+                          placeholder="Type new secure password..."
+                          className="form-control"
+                        />
+                      </div>
                       <button
                         onClick={handleAdminResetPassword}
-                        disabled={isAdminUpdatingPassword}
-                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow whitespace-nowrap disabled:opacity-50"
+                        disabled={isAdminUpdatingPassword || !adminNewPassword}
+                        className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white font-bold text-xs px-4 py-2 rounded-xl shadow whitespace-nowrap transition disabled:cursor-not-allowed"
                       >
                         {isAdminUpdatingPassword ? 'Updating...' : 'Save Password'}
                       </button>
                     </div>
                   </div>
 
+                  {/* Actions footer */}
                   <div className="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
-                    <button onClick={() => setShowCheckUserModal(false)} className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs px-4 py-2 rounded-xl">Close</button>
+                    <button onClick={() => setShowCheckUserModal(false)} className="btn btn-outline btn-sm">Close</button>
                   </div>
                 </div>
               </div>
@@ -2478,42 +2533,45 @@ export default function ConnectProApp() {
               <button onClick={() => setIsForgotModalOpen(false)} className="modal-close"><X className="w-4 h-4" /></button>
             </div>
             <div className="modal-body space-y-4">
-              <div className="space-y-1">
-                <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider">Email address</label>
+              <div className="form-group">
+                <label className="form-label">Email address</label>
                 <input
                   type="email"
                   value={forgotEmail}
                   onChange={e => setForgotEmail(e.target.value)}
                   placeholder="you@company.com"
-                  className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-650"
+                  className="form-control"
+                  required
                 />
               </div>
-              <div className="space-y-1">
-                <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider">New Password</label>
+              <div className="form-group">
+                <label className="form-label">New Password</label>
                 <input
                   type="password"
                   value={forgotNewPassword}
                   onChange={e => setForgotNewPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-650"
+                  className="form-control"
+                  required
                 />
               </div>
-              <div className="space-y-1">
-                <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider">Confirm New Password</label>
+              <div className="form-group">
+                <label className="form-label">Confirm New Password</label>
                 <input
                   type="password"
                   value={forgotConfirmPassword}
                   onChange={e => setForgotConfirmPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-650"
+                  className="form-control"
+                  required
                 />
               </div>
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-                <button onClick={() => setIsForgotModalOpen(false)} className="text-slate-500 font-bold text-xs px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-xl">Cancel</button>
+                <button onClick={() => setIsForgotModalOpen(false)} className="btn btn-outline btn-sm">Cancel</button>
                 <button
                   onClick={handleResetPasswordAndLogin}
                   disabled={isResettingPassword}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow disabled:opacity-50"
+                  className="btn btn-primary btn-sm disabled:opacity-50"
                 >
                   {isResettingPassword ? 'Resetting...' : 'Reset & Sign In'}
                 </button>
