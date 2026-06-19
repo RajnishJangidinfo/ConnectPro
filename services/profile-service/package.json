@@ -15,7 +15,10 @@
     "shared": "*"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.12.12",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5"
   }

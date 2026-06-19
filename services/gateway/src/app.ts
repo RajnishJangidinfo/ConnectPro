@@ -6,7 +6,7 @@ import * as dotenv from 'dotenv';
 import bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
-import { authenticateJWT, AuthenticatedRequest } from './middleware/auth';
+import { authenticateJWT, requireSuperAdmin, requireAdminOrAbove, AuthenticatedRequest } from './middleware/auth';
 import {
   profileClient,
   connectionClient,
@@ -65,6 +65,7 @@ interface InMemoryUser {
   email: string;
   passwordHash: string;
   role: string;
+  isActive: boolean;
 }
 const memoryUsers: InMemoryUser[] = [];
 
@@ -105,16 +106,16 @@ const MOCK_HEADLINES = [
 
 const getDeterministicGatewayProfile = (userId: string) => {
   if (userId.includes('sophia')) {
-    return { firstName: 'Sophia', lastName: 'Reyes', headline: 'Head of Design at Stripe' };
+    return { firstName: 'Sophia', lastName: 'Reyes', headline: 'Head of Design at Stripe', location: '' };
   }
   if (userId.includes('james')) {
-    return { firstName: 'James', lastName: 'Kim', headline: 'CTO at NovaTech' };
+    return { firstName: 'James', lastName: 'Kim', headline: 'CTO at NovaTech', location: '' };
   }
   if (userId.includes('leila')) {
-    return { firstName: 'Leila', lastName: 'Patel', headline: 'VP Product at Airbnb' };
+    return { firstName: 'Leila', lastName: 'Patel', headline: 'VP Product at Airbnb', location: '' };
   }
   if (userId.includes('alex')) {
-    return { firstName: 'Alex', lastName: 'Morgan', headline: 'Software Engineer' };
+    return { firstName: 'Alex', lastName: 'Morgan', headline: 'Software Engineer', location: '' };
   }
 
   let hash = 0;
@@ -125,7 +126,7 @@ const getDeterministicGatewayProfile = (userId: string) => {
   const firstName = MOCK_FIRST_NAMES[index % MOCK_FIRST_NAMES.length];
   const lastName = MOCK_LAST_NAMES[index % MOCK_LAST_NAMES.length];
   const headline = MOCK_HEADLINES[(index + 3) % MOCK_HEADLINES.length];
-  return { firstName, lastName, headline };
+  return { firstName, lastName, headline, location: '' };
 };
 
 // ----------------------------------------------------
@@ -180,7 +181,8 @@ app.post('/api/v1/auth/register', async (req, res) => {
         id: `user-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         email,
         passwordHash,
-        role: 'USER'
+        role: 'USER',
+        isActive: true
       };
       memoryUsers.push(memoryUser);
       user = { id: memoryUser.id, email: memoryUser.email, role: memoryUser.role };
@@ -246,6 +248,12 @@ app.post('/api/v1/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
+    // Check if account is deactivated
+    const activeFlag = (matchedUser as any).isActive;
+    if (activeFlag === false) {
+      return res.status(403).json({ error: 'Your account has been deactivated. Please contact support.' });
+    }
+
     const match = await bcrypt.compare(password, matchedUser.passwordHash);
     if (!match) {
       return res.status(401).json({ error: 'Invalid email or password' });
@@ -260,6 +268,71 @@ app.post('/api/v1/auth/login', async (req, res) => {
       createAuditLog(clientUserObj.id, clientUserObj.email, 'USER_LOGIN', `User logged in successfully.`, req);
       res.json({
         message: 'Login successful',
+        token,
+        user: clientUserObj,
+        profile: profile || {
+          userId: clientUserObj.id,
+          username: '',
+          firstName: 'Member',
+          lastName: 'User',
+          headline: 'Professional at ConnectPro',
+          bio: '',
+          location: '',
+          skills: [],
+          workExperience: [],
+          education: [],
+          privacy: { profileVisible: true, showViews: true, openToWork: false }
+        }
+      });
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/v1/auth/reset-password', async (req, res) => {
+  const { email, newPassword } = req.body;
+  if (!email || !newPassword) {
+    return res.status(400).json({ error: 'Email and new password are required' });
+  }
+
+  try {
+    let matchedUser: any = null;
+
+    if (isPrismaConnected) {
+      const user = await prisma.user.findUnique({ where: { email } });
+      if (user) {
+        const passwordHash = await bcrypt.hash(newPassword, 10);
+        const updatedUser = await prisma.user.update({
+          where: { email },
+          data: { passwordHash }
+        });
+        matchedUser = { id: updatedUser.id, email: updatedUser.email, role: updatedUser.role, isActive: updatedUser.isActive };
+      }
+    } else {
+      const userIdx = memoryUsers.findIndex(u => u.email === email);
+      if (userIdx !== -1) {
+        const passwordHash = await bcrypt.hash(newPassword, 10);
+        memoryUsers[userIdx].passwordHash = passwordHash;
+        matchedUser = memoryUsers[userIdx];
+      }
+    }
+
+    if (!matchedUser) {
+      return res.status(404).json({ error: 'User with this email not found' });
+    }
+
+    if (matchedUser.isActive === false) {
+      return res.status(403).json({ error: 'Your account has been deactivated. Please contact support.' });
+    }
+
+    const token = jwt.sign({ userId: matchedUser.id, email: matchedUser.email, role: matchedUser.role }, JWT_SECRET, { expiresIn: '7d' });
+    const clientUserObj = { id: matchedUser.id, email: matchedUser.email, role: matchedUser.role };
+
+    profileClient.getProfile({ userId: matchedUser.id }, (err: any, profile: any) => {
+      createAuditLog(clientUserObj.id, clientUserObj.email, 'PASSWORD_RESET_AUTO_LOGIN', `User reset password and logged in successfully.`, req);
+      res.json({
+        message: 'Password reset and login successful',
         token,
         user: clientUserObj,
         profile: profile || {
@@ -817,7 +890,7 @@ app.post('/api/v1/chats/conversations/:convId/messages', authenticateJWT, (req: 
 
 app.get('/api/v1/admin/logs', authenticateJWT, async (req: AuthenticatedRequest, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-  if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Forbidden: Admin access required' });
+  if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN') return res.status(403).json({ error: 'Forbidden: Admin access required' });
 
   try {
     if (isPrismaConnected) {
@@ -851,6 +924,207 @@ app.post('/api/v1/audit/log', authenticateJWT, async (req: AuthenticatedRequest,
     res.status(500).json({ error: err.message });
   }
 });
+
+// ----------------------------------------------------
+// SUPER ADMIN: USER MANAGEMENT ENDPOINTS
+// ----------------------------------------------------
+
+/** GET /api/v1/admin/users – list all registered users with profile + connection count (Super Admin only) */
+app.get('/api/v1/admin/users', authenticateJWT, async (req: AuthenticatedRequest, res) => {
+  try {
+    let baseUsers: any[] = [];
+
+    if (isPrismaConnected) {
+      baseUsers = await prisma.user.findMany({
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, email: true, role: true, isActive: true, isEmailVerified: true, createdAt: true, passwordHash: true }
+      });
+    } else {
+      return res.status(503).json({ error: 'Database is offline. Cannot load user list without database connection.' });
+    }
+
+    if (baseUsers.length === 0) return res.json({ users: [] });
+
+    // Enrich each user with profile + connection count in parallel
+    const enriched = await Promise.all(baseUsers.map(user => {
+      return new Promise<any>(resolve => {
+        let profile: any = null;
+        let connectionCount = 0;
+        let done = 0;
+        const tryFinish = () => {
+          done++;
+          if (done === 2) {
+            resolve({
+              ...user,
+              firstName: profile?.firstName || '',
+              lastName: profile?.lastName || '',
+              headline: profile?.headline || '',
+              location: profile?.location || '',
+              connectionCount
+            });
+          }
+        };
+
+        // Fetch profile
+        profileClient.getProfile({ userId: user.id }, (err: any, prof: any) => {
+          if (err) console.error(`[Admin/Users] Profile Error for ${user.id}:`, err.message);
+          if (!err && prof) profile = prof;
+          tryFinish();
+        });
+
+        // Fetch accepted connection count
+        connectionClient.getConnections({ userId: user.id, status: 'ACCEPTED' }, (err: any, connRes: any) => {
+          if (err) console.error(`[Admin/Users] Connection Error for ${user.id}:`, err.message);
+          if (!err && connRes?.connections) connectionCount = connRes.connections.length;
+          tryFinish();
+        });
+      });
+    }));
+
+    return res.json({ users: enriched });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** GET /api/v1/admin/users/:userId/connections – list a user's connections with profile details (Super Admin only) */
+app.get('/api/v1/admin/users/:userId/connections', authenticateJWT, requireSuperAdmin, async (req: AuthenticatedRequest, res) => {
+  const { userId } = req.params;
+
+  connectionClient.getConnections({ userId, status: 'ACCEPTED' }, (err: any, connRes: any) => {
+    if (err || !connRes?.connections?.length) {
+      return res.json({ connections: [] });
+    }
+
+    const rawConns: any[] = connRes.connections;
+    let done = 0;
+    const populated: any[] = [];
+
+    rawConns.forEach(conn => {
+      profileClient.getProfile({ userId: conn.userId }, (profErr: any, prof: any) => {
+        const fallback = getDeterministicGatewayProfile(conn.userId);
+        populated.push({
+          userId: conn.userId,
+          firstName: prof?.firstName || fallback.firstName,
+          lastName: prof?.lastName || fallback.lastName,
+          headline: prof?.headline || fallback.headline,
+          location: prof?.location || fallback.location || ''
+        });
+        done++;
+        if (done === rawConns.length) {
+          res.json({ connections: populated });
+        }
+      });
+    });
+  });
+});
+
+
+/** PATCH /api/v1/admin/users/:userId/role – change a user's role (Super Admin only) */
+app.patch('/api/v1/admin/users/:userId/role', authenticateJWT, requireSuperAdmin, async (req: AuthenticatedRequest, res) => {
+  const { userId } = req.params;
+  const { role } = req.body;
+
+  const validRoles = ['USER', 'ADMIN', 'SUPER_ADMIN'];
+  if (!role || !validRoles.includes(role)) {
+    return res.status(400).json({ error: `role must be one of: ${validRoles.join(', ')}` });
+  }
+
+  try {
+    if (isPrismaConnected) {
+      const updated = await prisma.user.update({
+        where: { id: userId },
+        data: { role: role as any },
+        select: { id: true, email: true, role: true, isActive: true, createdAt: true }
+      });
+      await createAuditLog(req.user!.userId, req.user!.email, 'ADMIN_UPDATE_ROLE', `Changed role of user ${updated.email} to ${role}.`, req);
+      return res.json({ user: updated });
+    } else {
+      const u = memoryUsers.find(x => x.id === userId);
+      if (!u) return res.status(404).json({ error: 'User not found' });
+      u.role = role;
+      return res.json({ user: { id: u.id, email: u.email, role: u.role, isActive: u.isActive } });
+    }
+  } catch (err: any) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'User not found' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** PATCH /api/v1/admin/users/:userId/status – activate or deactivate an account (Super Admin only) */
+app.patch('/api/v1/admin/users/:userId/status', authenticateJWT, requireSuperAdmin, async (req: AuthenticatedRequest, res) => {
+  const { userId } = req.params;
+  const { isActive } = req.body;
+
+  if (typeof isActive !== 'boolean') {
+    return res.status(400).json({ error: 'isActive must be a boolean' });
+  }
+
+  try {
+    if (isPrismaConnected) {
+      const updated = await prisma.user.update({
+        where: { id: userId },
+        data: { isActive },
+        select: { id: true, email: true, role: true, isActive: true, createdAt: true }
+      });
+      await createAuditLog(req.user!.userId, req.user!.email, isActive ? 'ADMIN_ACTIVATE_USER' : 'ADMIN_DEACTIVATE_USER', `${isActive ? 'Activated' : 'Deactivated'} account for user ${updated.email}.`, req);
+      return res.json({ user: updated });
+    } else {
+      const u = memoryUsers.find(x => x.id === userId);
+      if (!u) return res.status(404).json({ error: 'User not found' });
+      u.isActive = isActive;
+      return res.json({ user: { id: u.id, email: u.email, role: u.role, isActive: u.isActive } });
+    }
+  } catch (err: any) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'User not found' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** PATCH /api/v1/admin/users/:userId/password – update a user's password directly (Super Admin only) */
+app.patch('/api/v1/admin/users/:userId/password', authenticateJWT, requireSuperAdmin, async (req: AuthenticatedRequest, res) => {
+  const { userId } = req.params;
+  const { newPassword } = req.body;
+
+  if (!newPassword) {
+    return res.status(400).json({ error: 'New password is required' });
+  }
+
+  try {
+    let updated: any = null;
+
+    if (isPrismaConnected) {
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+      updated = await prisma.user.update({
+        where: { id: userId },
+        data: { passwordHash },
+        select: { id: true, email: true, role: true, isActive: true, createdAt: true }
+      });
+    } else {
+      const userIdx = memoryUsers.findIndex(u => u.id === userId);
+      if (userIdx !== -1) {
+        const passwordHash = await bcrypt.hash(newPassword, 10);
+        memoryUsers[userIdx].passwordHash = passwordHash;
+        updated = memoryUsers[userIdx];
+      }
+    }
+
+    if (!updated) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    await createAuditLog(req.user!.userId, req.user!.email, 'ADMIN_RESET_USER_PASSWORD', `Changed password for user ${updated.email}.`, req);
+
+    return res.json({
+      message: 'Password updated successfully',
+      user: { id: updated.id, email: updated.email, role: updated.role, isActive: updated.isActive }
+    });
+  } catch (err: any) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'User not found' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // ----------------------------------------------------
 // SOCKET.IO REAL-TIME SIGNALING HUB

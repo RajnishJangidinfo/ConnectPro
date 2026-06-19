@@ -2,6 +2,7 @@ import * as grpc from '@grpc/grpc-js';
 import * as dotenv from 'dotenv';
 import { loadServiceDefinition } from 'shared';
 import { pool, initDb, isDbConnected } from './db';
+import { ConnectionStore, InMemoryConnection } from './store';
 
 dotenv.config();
 
@@ -14,25 +15,12 @@ const connectionService = protoPackage.connection.ConnectionService.service;
 const server = new grpc.Server();
 
 // In-Memory Fallbacks Data
-interface InMemoryConnection {
-  senderId: string;
-  receiverId: string;
-  status: string;
-}
 interface InMemoryBlock {
   blockerId: string;
   blockedId: string;
 }
 
-const memoryConnections: InMemoryConnection[] = [
-  // Add some mock connections so network suggestion counts work initially
-  { senderId: 'alex-morgan-uuid', receiverId: 'sophia-reyes-uuid', status: 'ACCEPTED' },
-  { senderId: 'alex-morgan-uuid', receiverId: 'james-kim-uuid', status: 'ACCEPTED' },
-  { senderId: 'alex-morgan-uuid', receiverId: 'leila-patel-uuid', status: 'ACCEPTED' },
-  { senderId: 'sophia-reyes-uuid', receiverId: 'marcus-nguyen-uuid', status: 'ACCEPTED' },
-  { senderId: 'sophia-reyes-uuid', receiverId: 'rachel-lim-uuid', status: 'ACCEPTED' },
-  { senderId: 'james-kim-uuid', receiverId: 'tyler-osei-uuid', status: 'ACCEPTED' }
-];
+const connectionStore = new ConnectionStore();
 const memoryBlocks: InMemoryBlock[] = [];
 
 server.addService(connectionService, {
@@ -76,7 +64,7 @@ server.addService(connectionService, {
           return callback(null, { success: false, status: 'BLOCKED', message: 'User is blocked' });
         }
 
-        const existing = memoryConnections.find(c => 
+        const existing = connectionStore.findConnection((c: any) => 
           (c.senderId === senderId && c.receiverId === receiverId) || 
           (c.senderId === receiverId && c.receiverId === senderId)
         );
@@ -84,7 +72,7 @@ server.addService(connectionService, {
           return callback(null, { success: false, status: existing.status, message: `Request exists: ${existing.status}` });
         }
 
-        memoryConnections.push({ senderId, receiverId, status: 'PENDING' });
+        connectionStore.addConnection({ senderId, receiverId, status: 'PENDING' });
       }
 
       callback(null, { success: true, status: 'PENDING', message: 'Connection request sent successfully' });
@@ -106,11 +94,12 @@ server.addService(connectionService, {
           return callback(null, { success: false, status: 'NONE', message: 'Pending connection request not found' });
         }
       } else {
-        const idx = memoryConnections.findIndex(c => c.senderId === senderId && c.receiverId === receiverId && c.status === 'PENDING');
-        if (idx === -1) {
+        const conn = connectionStore.findConnection(c => c.senderId === senderId && c.receiverId === receiverId && c.status === 'PENDING');
+        if (!conn) {
           return callback(null, { success: false, status: 'NONE', message: 'Pending connection request not found' });
         }
-        memoryConnections[idx].status = 'ACCEPTED';
+        conn.status = 'ACCEPTED';
+        connectionStore.save();
       }
 
       callback(null, { success: true, status: 'ACCEPTED', message: 'Connection request accepted' });
@@ -132,11 +121,12 @@ server.addService(connectionService, {
           return callback(null, { success: false, status: 'NONE', message: 'Pending connection request not found' });
         }
       } else {
-        const idx = memoryConnections.findIndex(c => c.senderId === senderId && c.receiverId === receiverId && c.status === 'PENDING');
-        if (idx === -1) {
+        const conn = connectionStore.findConnection(c => c.senderId === senderId && c.receiverId === receiverId && c.status === 'PENDING');
+        if (!conn) {
           return callback(null, { success: false, status: 'NONE', message: 'Pending connection request not found' });
         }
-        memoryConnections[idx].status = 'REJECTED';
+        conn.status = 'REJECTED';
+        connectionStore.save();
       }
 
       callback(null, { success: true, status: 'REJECTED', message: 'Connection request rejected' });
@@ -158,11 +148,11 @@ server.addService(connectionService, {
           return callback(null, { success: false, status: 'NONE', message: 'Pending connection request not found' });
         }
       } else {
-        const idx = memoryConnections.findIndex(c => c.senderId === senderId && c.receiverId === receiverId && c.status === 'PENDING');
+        const idx = connectionStore.findIndex((c: any) => c.senderId === senderId && c.receiverId === receiverId && c.status === 'PENDING');
         if (idx === -1) {
           return callback(null, { success: false, status: 'NONE', message: 'Pending connection request not found' });
         }
-        memoryConnections.splice(idx, 1);
+        connectionStore.removeConnectionByIndex(idx);
       }
 
       callback(null, { success: true, status: 'NONE', message: 'Connection request cancelled' });
@@ -184,13 +174,11 @@ server.addService(connectionService, {
           return callback(null, { success: false, status: 'NONE', message: 'Active connection not found' });
         }
       } else {
-        const idx = memoryConnections.findIndex(c => 
-          ((c.senderId === userA && c.receiverId === userB) || (c.senderId === userB && c.receiverId === userA)) && c.status === 'ACCEPTED'
-        );
+        const idx = connectionStore.findIndex(c => ((c.senderId === userA && c.receiverId === userB) || (c.senderId === userB && c.receiverId === userA)) && c.status === 'ACCEPTED');
         if (idx === -1) {
           return callback(null, { success: false, status: 'NONE', message: 'Active connection not found' });
         }
-        memoryConnections.splice(idx, 1);
+        connectionStore.removeConnectionByIndex(idx);
       }
 
       callback(null, { success: true, status: 'NONE', message: 'Connection removed successfully' });
@@ -223,19 +211,29 @@ server.addService(connectionService, {
           degree: filterStatus === 'ACCEPTED' ? 1 : 0
         }));
       } else {
-        connections = memoryConnections
-          .filter(c => (c.senderId === userId || c.receiverId === userId) && c.status === filterStatus)
-          .map(c => {
-            const friendId = c.senderId === userId ? c.receiverId : c.senderId;
-            return {
-              userId: friendId,
+        if (filterStatus === 'PENDING') {
+          connections = connectionStore.getAllConnections()
+            .filter(c => c.receiverId === userId && c.status === 'PENDING')
+            .map(c => ({
+              userId: c.senderId,
+              status: c.status,
+              firstName: '',
+              lastName: '',
+              headline: '',
+              degree: 0
+            }));
+        } else {
+          connections = connectionStore.getAllConnections()
+            .filter(c => (c.senderId === userId || c.receiverId === userId) && c.status === filterStatus)
+            .map(c => ({
+              userId: c.senderId === userId ? c.receiverId : c.senderId,
               status: c.status,
               firstName: '',
               lastName: '',
               headline: '',
               degree: filterStatus === 'ACCEPTED' ? 1 : 0
-            };
-          });
+            }));
+        }
       }
 
       callback(null, { connections });
@@ -270,11 +268,11 @@ server.addService(connectionService, {
           degree: 1
         }));
       } else {
-        const friendsA = memoryConnections
+        const friendsA = connectionStore.getAllConnections()
           .filter(c => (c.senderId === userA || c.receiverId === userA) && c.status === 'ACCEPTED')
           .map(c => c.senderId === userA ? c.receiverId : c.senderId);
 
-        const friendsB = memoryConnections
+        const friendsB = connectionStore.getAllConnections()
           .filter(c => (c.senderId === userB || c.receiverId === userB) && c.status === 'ACCEPTED')
           .map(c => c.senderId === userB ? c.receiverId : c.senderId);
 
@@ -334,34 +332,26 @@ server.addService(connectionService, {
           degree: 2
         }));
       } else {
-        // In-Memory Recommendation Logic
-        const firstDegree = memoryConnections
+        const direct = connectionStore.getAllConnections()
           .filter(c => (c.senderId === userId || c.receiverId === userId) && c.status === 'ACCEPTED')
           .map(c => c.senderId === userId ? c.receiverId : c.senderId);
-
-        const secondDegreeCount: { [id: string]: number } = {};
-        for (const friendId of firstDegree) {
-          const peers = memoryConnections
-            .filter(c => (c.senderId === friendId || c.receiverId === friendId) && c.status === 'ACCEPTED')
-            .map(c => c.senderId === friendId ? c.receiverId : c.senderId);
-
-          for (const peerId of peers) {
-            if (peerId === userId || firstDegree.includes(peerId)) continue;
-            secondDegreeCount[peerId] = (secondDegreeCount[peerId] || 0) + 1;
-          }
-        }
-
-        // Hardcode fallback suggestions if second degree yields nothing to make UI beautiful!
-        const defaultSugg = ['sophia-reyes-uuid', 'james-kim-uuid', 'leila-patel-uuid', 'marcus-nguyen-uuid', 'rachel-lim-uuid', 'tyler-osei-uuid'];
-        defaultSugg.forEach(id => {
-          if (id !== userId && !firstDegree.includes(id)) {
-            secondDegreeCount[id] = (secondDegreeCount[id] || 0) + 1;
-          }
+        
+        let secondDegree = new Set<string>();
+        direct.forEach(fId => {
+          const theirConnections = connectionStore.getAllConnections()
+            .filter(c => (c.senderId === fId || c.receiverId === fId) && c.status === 'ACCEPTED')
+            .map(c => c.senderId === fId ? c.receiverId : c.senderId);
+          theirConnections.forEach(id => {
+            if (id !== userId && !direct.includes(id)) secondDegree.add(id);
+          });
         });
 
-        const sortedSugg = Object.keys(secondDegreeCount).sort((a, b) => secondDegreeCount[b] - secondDegreeCount[a]);
+        const defaultSugg = ['sophia-reyes-uuid', 'james-kim-uuid', 'leila-patel-uuid', 'marcus-nguyen-uuid', 'rachel-lim-uuid', 'tyler-osei-uuid'];
+        defaultSugg.forEach(id => {
+          if (id !== userId && !direct.includes(id)) secondDegree.add(id);
+        });
 
-        connections = sortedSugg.map(id => ({
+        connections = Array.from(secondDegree).map(id => ({
           userId: id,
           status: 'NONE',
           firstName: '',
@@ -391,11 +381,11 @@ server.addService(connectionService, {
           [blockerId, blockedId]
         );
       } else {
-        const idx = memoryConnections.findIndex(c => 
+        const idx = connectionStore.findIndex(c => 
           (c.senderId === blockerId && c.receiverId === blockedId) || 
           (c.senderId === blockedId && c.receiverId === blockerId)
         );
-        if (idx !== -1) memoryConnections.splice(idx, 1);
+        if (idx !== -1) connectionStore.removeConnectionByIndex(idx);
 
         if (!memoryBlocks.some(b => b.blockerId === blockerId && b.blockedId === blockedId)) {
           memoryBlocks.push({ blockerId, blockedId });
@@ -431,6 +421,7 @@ server.addService(connectionService, {
   checkConnectionStatus: async (call: any, callback: any) => {
     try {
       const { userA, userB } = call.request;
+      let statusStr = 'NONE';
 
       if (isDbConnected) {
         const blockCheck = await pool.query(
@@ -455,11 +446,14 @@ server.addService(connectionService, {
         );
         if (blocked) return callback(null, { status: 'BLOCKED' });
 
-        const conn = memoryConnections.find(c => 
+        const conn = connectionStore.findConnection(c => 
           (c.senderId === userA && c.receiverId === userB) || 
           (c.senderId === userB && c.receiverId === userA)
         );
-        if (conn) return callback(null, { status: conn.status });
+        if (conn) {
+          statusStr = conn.status;
+        }
+        return callback(null, { status: statusStr });
       }
 
       callback(null, { status: 'NONE' });

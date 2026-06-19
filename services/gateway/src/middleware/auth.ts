@@ -33,3 +33,21 @@ export const authenticateJWT = (req: AuthenticatedRequest, res: Response, next: 
     res.status(401).json({ error: 'Authorization header is missing' });
   }
 };
+
+/** Middleware: Only SUPER_ADMIN may proceed */
+export const requireSuperAdmin = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  if (req.user.role !== 'SUPER_ADMIN') {
+    return res.status(403).json({ error: 'Forbidden: Super Admin access required' });
+  }
+  next();
+};
+
+/** Middleware: ADMIN or SUPER_ADMIN may proceed */
+export const requireAdminOrAbove = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
+    return res.status(403).json({ error: 'Forbidden: Admin access required' });
+  }
+  next();
+};

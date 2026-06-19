@@ -24,7 +24,7 @@ export default function ConnectProApp() {
 
   // App Routing State
   const [currentPage, setCurrentPage] = useState<'login' | 'register' | 'forgot' | 'app'>('login');
-  const [currentAppTab, setCurrentAppTab] = useState<'feed' | 'profile' | 'messages' | 'connections' | 'groups' | 'search' | 'admin' | 'logs'>('feed');
+  const [currentAppTab, setCurrentAppTab] = useState<'feed' | 'profile' | 'messages' | 'connections' | 'groups' | 'search' | 'admin' | 'logs' | 'superadmin'>('feed');
 
   // UI States
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -86,6 +86,173 @@ export default function ConnectProApp() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchPeople, setSearchPeople] = useState<any[]>([]);
   const [requestSentIds, setRequestSentIds] = useState<Set<string>>(new Set());
+
+  // Super Admin – User Management
+  const [adminUsers, setAdminUsers] = useState<any[]>([]);
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+  const [adminUsersSearch, setAdminUsersSearch] = useState('');
+  const [confirmDeactivate, setConfirmDeactivate] = useState<string | null>(null);
+  const [selectedUserForConnections, setSelectedUserForConnections] = useState<any | null>(null);
+  const [userConnections, setUserConnections] = useState<any[]>([]);
+  const [userConnectionsLoading, setUserConnectionsLoading] = useState(false);
+  const [showConnectionsModal, setShowConnectionsModal] = useState(false);
+
+  // Forgot Password popup states
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState('');
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+
+  // Check User details states
+  const [showCheckUserModal, setShowCheckUserModal] = useState(false);
+  const [selectedCheckUser, setSelectedCheckUser] = useState<any | null>(null);
+  const [adminNewPassword, setAdminNewPassword] = useState('');
+  const [isAdminUpdatingPassword, setIsAdminUpdatingPassword] = useState(false);
+
+  const fetchAdminUsers = async () => {
+    if (!auth.token) return;
+    setAdminUsersLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/admin/users`, {
+        headers: { 'Authorization': `Bearer ${auth.token}` }
+      });
+      const data = await res.json();
+      if (res.ok) setAdminUsers(data.users || []);
+      else showToast(data.error || 'Failed to fetch users', 'warning');
+    } catch {
+      showToast('Could not reach user management API', 'warning');
+    } finally {
+      setAdminUsersLoading(false);
+    }
+  };
+
+  const handleUpdateRole = async (userId: string, role: string) => {
+    try {
+      const res = await fetch(`${API_URL}/admin/users/${userId}/role`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth.token}` },
+        body: JSON.stringify({ role })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAdminUsers(prev => prev.map(u => u.id === userId ? { ...u, role: data.user.role } : u));
+        showToast(`Role updated to ${role}`, 'success');
+      } else showToast(data.error || 'Role update failed', 'warning');
+    } catch { showToast('Failed to update role', 'warning'); }
+  };
+
+  const handleToggleStatus = async (userId: string, isActive: boolean) => {
+    try {
+      const res = await fetch(`${API_URL}/admin/users/${userId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth.token}` },
+        body: JSON.stringify({ isActive })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAdminUsers(prev => prev.map(u => u.id === userId ? { ...u, isActive: data.user.isActive } : u));
+        showToast(isActive ? 'Account activated' : 'Account deactivated', 'success');
+      } else showToast(data.error || 'Status update failed', 'warning');
+    } catch { showToast('Failed to update status', 'warning'); }
+    setConfirmDeactivate(null);
+  };
+
+  const handleShowConnections = async (user: any) => {
+    setSelectedUserForConnections(user);
+    setShowConnectionsModal(true);
+    setUserConnectionsLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/admin/users/${user.id}/connections`, {
+        headers: { 'Authorization': `Bearer ${auth.token}` }
+      });
+      const data = await res.json();
+      if (res.ok) setUserConnections(data.connections || []);
+      else showToast(data.error || 'Failed to fetch connections', 'warning');
+    } catch {
+      showToast('Could not reach connections API', 'warning');
+    } finally {
+      setUserConnectionsLoading(false);
+    }
+  };
+
+  const handleResetPasswordAndLogin = async () => {
+    if (!forgotEmail || !forgotNewPassword) {
+      showToast('Email and new password are required', 'warning');
+      return;
+    }
+    if (forgotNewPassword !== forgotConfirmPassword) {
+      showToast('Passwords do not match', 'warning');
+      return;
+    }
+    setIsResettingPassword(true);
+    try {
+      const res = await fetch(`${API_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail, newPassword: forgotNewPassword })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        dispatch(setLoginSuccess({ token: data.token, user: data.user, profile: data.profile }));
+        postClientAuditLog('PASSWORD_RESET_AUTO_LOGIN_FRONTEND', `User reset password and logged in automatically.`);
+        showToast('Password updated! You are now logged in.', 'success');
+        setIsForgotModalOpen(false);
+        setCurrentPage('app');
+      } else {
+        showToast(data.error || 'Failed to reset password', 'warning');
+      }
+    } catch (err) {
+      showToast('Error connecting to authentication service', 'warning');
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
+
+  const handleCheckUser = (user: any) => {
+    setSelectedCheckUser(user);
+    setAdminNewPassword('');
+    setShowCheckUserModal(true);
+  };
+
+  const handleAdminResetPassword = async () => {
+    if (!selectedCheckUser || !adminNewPassword) {
+      showToast('Please type a new password', 'warning');
+      return;
+    }
+    setIsAdminUpdatingPassword(true);
+    try {
+      const res = await fetch(`${API_URL}/admin/users/${selectedCheckUser.id}/password`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${auth.token}`
+        },
+        body: JSON.stringify({ newPassword: adminNewPassword })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAdminUsers(prev => prev.map(u => u.id === selectedCheckUser.id ? { ...u, passwordHash: data.user.passwordHash || u.passwordHash } : u));
+        if (selectedCheckUser.id === auth.user?.id) {
+          showToast('Your password was updated successfully!', 'success');
+        } else {
+          showToast(`Password updated for ${selectedCheckUser.email}`, 'success');
+        }
+        setAdminNewPassword('');
+        setSelectedCheckUser((prev: any) => prev ? { ...prev, passwordHash: data.user.passwordHash || prev.passwordHash } : null);
+      } else {
+        showToast(data.error || 'Failed to update password', 'warning');
+      }
+    } catch {
+      showToast('Error resetting user password', 'warning');
+    } finally {
+      setIsAdminUpdatingPassword(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentAppTab === 'superadmin' && auth.token) fetchAdminUsers();
+  }, [currentAppTab, auth.token]);
 
   // Toast Handler
   const showToast = (msg: string, type: 'success' | 'info' | 'warning' = 'info') => {
@@ -638,7 +805,12 @@ export default function ConnectProApp() {
                 <div className="form-group">
                   <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
                     Password
-                    <a onClick={() => setCurrentPage('forgot')} style={{ fontSize: '.78rem', textTransform: 'none', letterSpacing: 0 }}>Forgot password?</a>
+                    <a onClick={() => {
+                      setForgotEmail(email);
+                      setForgotNewPassword('');
+                      setForgotConfirmPassword('');
+                      setIsForgotModalOpen(true);
+                    }} style={{ fontSize: '.78rem', textTransform: 'none', letterSpacing: 0, cursor: 'pointer' }}>Forgot password?</a>
                   </label>
                   <input
                     type="password"
@@ -842,7 +1014,7 @@ export default function ConnectProApp() {
                 <span>Alerts</span>
                 {notifCount > 0 && <span className="badge">{notifCount}</span>}
               </div>
-              {auth.user?.role === 'ADMIN' && (
+              {(auth.user?.role === 'ADMIN' || auth.user?.role === 'SUPER_ADMIN') && (
                 <>
                   <div
                     className={`nav-link ${currentAppTab === 'admin' ? 'active' : ''}`}
@@ -860,12 +1032,22 @@ export default function ConnectProApp() {
                   </div>
                 </>
               )}
+              {auth.user?.role === 'SUPER_ADMIN' && (
+                <div
+                  className={`nav-link ${currentAppTab === 'superadmin' ? 'active' : ''}`}
+                  onClick={() => setCurrentAppTab('superadmin')}
+                  style={currentAppTab === 'superadmin' ? { color: '#f59e0b' } : { color: '#f59e0b', opacity: 0.85 }}
+                >
+                  <span style={{ fontSize: '1.2rem' }}>👑</span>
+                  <span>Super Admin</span>
+                </div>
+              )}
               <div
                 className={`nav-avatar-btn ${currentAppTab === 'profile' ? 'active' : ''}`}
                 onClick={() => setCurrentAppTab('profile')}
               >
                 <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: '.75rem' }}>
-                  {auth.profile?.firstName ? `${auth.profile.firstName[0]}${auth.profile.lastName[0]}` : 'Me'}
+                  {auth.profile?.firstName ? `${auth.profile.firstName.charAt(0)}${auth.profile.lastName ? auth.profile.lastName.charAt(0) : ''}` : 'Me'}
                 </div>
                 <span>Me</span>
               </div>
@@ -922,10 +1104,10 @@ export default function ConnectProApp() {
                     <div className="profile-sidebar-banner" />
                     <div className="profile-sidebar-body">
                       <div className="profile-sidebar-avatar">
-                        {auth.profile?.firstName ? `${auth.profile.firstName[0]}${auth.profile.lastName[0]}` : 'CP'}
+                        {auth.profile?.firstName ? `${auth.profile.firstName.charAt(0)}${auth.profile.lastName ? auth.profile.lastName.charAt(0) : ''}` : 'CP'}
                       </div>
                       <h3 className="profile-sidebar-name" onClick={() => setCurrentAppTab('profile')} style={{ cursor: 'pointer' }}>
-                        {auth.profile ? `${auth.profile.firstName} ${auth.profile.lastName}` : 'Guest Member'}
+                        {auth.profile ? `${auth.profile.firstName} ${auth.profile.lastName || ''}`.trim() : 'Guest Member'}
                       </h3>
                       <p className="profile-sidebar-title">{auth.profile?.headline || 'ConnectPro Member'}</p>
                       <div className="sidebar-divider" />
@@ -947,7 +1129,7 @@ export default function ConnectProApp() {
                   <div className="post-composer">
                     <div className="composer-row">
                       <div className="composer-avatar">
-                        {auth.profile?.firstName ? `${auth.profile.firstName[0]}${auth.profile.lastName[0]}` : 'CP'}
+                        {auth.profile?.firstName ? `${auth.profile.firstName.charAt(0)}${auth.profile.lastName ? auth.profile.lastName.charAt(0) : ''}` : 'CP'}
                       </div>
                       <button
                         onClick={() => setIsPostModalOpen(true)}
@@ -1170,12 +1352,15 @@ export default function ConnectProApp() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '480px' }}>
                       {pendingRequests.map(req => (
                         <div key={req.userId} style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                          <div style={{ width: '52px', height: '52px', borderRadius: '50%', backgroundColor: 'var(--primary)', color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            {req.firstName[0]}{req.lastName[0]}
+                          <div style={{ width: '52px', height: '52px', borderRadius: '50%', backgroundColor: 'var(--primary)', color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '1.1rem' }}>
+                            {req.firstName ? `${req.firstName[0]}${req.lastName?.[0] || ''}` : (req.userId?.substring(0, 2)?.toUpperCase() || '?')}
                           </div>
                           <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{req.firstName} {req.lastName}</div>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{req.headline}</div>
+                            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>
+                              {req.firstName && req.lastName ? `${req.firstName} ${req.lastName}` : req.firstName || req.lastName || 'ConnectPro Member'}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{req.headline || 'Professional on ConnectPro'}</div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Wants to connect with you</div>
                           </div>
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button className="btn btn-primary btn-sm" onClick={() => handleAcceptConnection(req.userId)}>Accept</button>
@@ -1402,13 +1587,13 @@ export default function ConnectProApp() {
                   <div className="profile-info-section">
                     <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', flexWrap: 'wrap' }}>
                       <div className="profile-avatar-large">
-                        {auth.profile?.firstName ? `${auth.profile.firstName[0]}${auth.profile.lastName[0]}` : 'Me'}
+                        {auth.profile?.firstName ? `${auth.profile.firstName.charAt(0)}${auth.profile.lastName ? auth.profile.lastName.charAt(0) : ''}` : 'Me'}
                       </div>
                       <div style={{ paddingBottom: '0.5rem', flex: 1 }}>
-                        <div className="profile-name">{auth.profile ? `${auth.profile.firstName} ${auth.profile.lastName}` : 'Guest Member'}</div>
+                        <div className="profile-name">{auth.profile ? `${auth.profile.firstName} ${auth.profile.lastName || ''}`.trim() : 'Guest Member'}</div>
                         <div className="profile-headline">{auth.profile?.headline || 'ConnectPro Member'}</div>
                         <div className="profile-location">
-                          📍 {auth.profile?.location || 'Add location'} · <a onClick={() => setCurrentAppTab('connections')}>500+ connections</a>
+                          📍 {auth.profile?.location || 'Add location'} · <a onClick={() => setCurrentAppTab('connections')}>{connectionsList.length > 0 ? connectionsList.length : '0'} connections</a>
                         </div>
                       </div>
                       <div style={{ paddingBottom: '0.5rem' }}>
@@ -1723,6 +1908,244 @@ export default function ConnectProApp() {
               </div>
             )}
 
+            {/* TAB CONTENT: Super Admin User Management */}
+            {currentAppTab === 'superadmin' && (
+              <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '1.5rem 1rem' }}>
+
+                {/* Header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                  <div>
+                    <h1 style={{ fontSize: '1.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span>👑</span> Super Admin Console
+                    </h1>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Full platform control — manage users, roles, and account status</p>
+                  </div>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={fetchAdminUsers}
+                    disabled={adminUsersLoading}
+                  >
+                    🔄 {adminUsersLoading ? 'Loading...' : 'Refresh'}
+                  </button>
+                </div>
+
+                {/* KPI Cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                  {[
+                    { label: 'Total Users', value: adminUsers.length, bg: 'var(--primary-light)', color: 'var(--primary)', icon: '👥' },
+                    { label: 'Active', value: adminUsers.filter(u => u.isActive !== false).length, bg: 'var(--success-light)', color: 'var(--success)', icon: '✅' },
+                    { label: 'Deactivated', value: adminUsers.filter(u => u.isActive === false).length, bg: 'var(--danger-light)', color: 'var(--danger)', icon: '🚫' },
+                    { label: 'Admins', value: adminUsers.filter(u => u.role === 'ADMIN' || u.role === 'SUPER_ADMIN').length, bg: 'rgba(245,158,11,0.12)', color: '#d97706', icon: '🛡️' },
+                  ].map(kpi => (
+                    <div key={kpi.label} style={{ background: kpi.bg, border: '1px solid rgba(0,0,0,0.06)', borderRadius: 'var(--radius-xl)', padding: '1.25rem', textAlign: 'center' }}>
+                      <div style={{ fontSize: '1.75rem', marginBottom: '0.25rem' }}>{kpi.icon}</div>
+                      <div style={{ fontSize: '1.8rem', fontWeight: 900, color: kpi.color }}>{kpi.value}</div>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.2rem' }}>{kpi.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Search + Table */}
+                <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
+                  <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <input
+                      className="form-control"
+                      style={{ maxWidth: '320px', fontSize: '0.83rem' }}
+                      placeholder="Search by email or role..."
+                      value={adminUsersSearch}
+                      onChange={e => setAdminUsersSearch(e.target.value)}
+                    />
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginLeft: 'auto' }}>
+                      {adminUsers.filter(u => !adminUsersSearch || u.email?.toLowerCase().includes(adminUsersSearch.toLowerCase()) || u.role?.toLowerCase().includes(adminUsersSearch.toLowerCase())).length} users
+                    </span>
+                  </div>
+
+                  {adminUsersLoading ? (
+                    <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                      <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>⏳</div>
+                      <p style={{ fontWeight: 600 }}>Loading users...</p>
+                    </div>
+                  ) : adminUsers.length === 0 ? (
+                    <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                      <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>👥</div>
+                      <p style={{ fontWeight: 600 }}>No users found</p>
+                      <p style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>Click Refresh to load registered users.</p>
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                        <thead>
+                          <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
+                            {['User', 'Role', 'Connections', 'Status', 'Joined', 'Actions'].map(col => (
+                              <th key={col} style={{ padding: '0.85rem 1rem', textAlign: 'left', fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{col}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {adminUsers
+                            .filter(u => !adminUsersSearch ||
+                              u.email?.toLowerCase().includes(adminUsersSearch.toLowerCase()) ||
+                              u.role?.toLowerCase().includes(adminUsersSearch.toLowerCase())
+                            )
+                            .map((user, idx) => {
+                              const isCurrentUser = user.id === auth.user?.id;
+                              const roleBg: Record<string, string> = {
+                                SUPER_ADMIN: 'rgba(245,158,11,0.15)',
+                                ADMIN: 'var(--primary-light)',
+                                USER: 'var(--surface2)'
+                              };
+                              const roleColor: Record<string, string> = {
+                                SUPER_ADMIN: '#d97706',
+                                ADMIN: 'var(--primary)',
+                                USER: 'var(--text-secondary)'
+                              };
+                              return (
+                                <tr key={user.id} style={{ borderBottom: '1px solid var(--border)', background: idx % 2 === 0 ? 'transparent' : 'var(--surface2)', transition: 'background 0.15s' }}>
+                                  {/* User */}
+                                  <td style={{ padding: '0.85rem 1rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                      <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: user.role === 'SUPER_ADMIN' ? 'linear-gradient(135deg,#f59e0b,#d97706)' : 'var(--primary)', color: '#fff', fontWeight: 800, fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        {((user.firstName || '')[0] || '') + ((user.lastName || '')[0] || '') || (user.email || 'U').substring(0, 2).toUpperCase()}
+                                      </div>
+                                      <div>
+                                        <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{user.firstName || user.lastName ? `${user.firstName} ${user.lastName}`.trim() : 'No Name'}</div>
+                                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{user.email}</div>
+                                      </div>
+                                      {isCurrentUser && <span style={{ fontSize: '0.65rem', background: 'var(--success-light)', color: 'var(--success)', fontWeight: 700, padding: '0.15rem 0.5rem', borderRadius: '999px' }}>YOU</span>}
+                                    </div>
+                                  </td>
+
+                                  {/* Role */}
+                                  <td style={{ padding: '0.85rem 1rem' }}>
+                                    <select
+                                      value={user.role}
+                                      onChange={e => handleUpdateRole(user.id, e.target.value)}
+                                      style={{ background: roleBg[user.role] || 'var(--surface2)', color: roleColor[user.role] || 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '0.3rem 0.6rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', outline: 'none' }}
+                                    >
+                                      <option value="USER">USER</option>
+                                      <option value="ADMIN">ADMIN</option>
+                                      <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                                    </select>
+                                  </td>
+
+                                  {/* Connections */}
+                                  <td style={{ padding: '0.85rem 1rem' }}>
+                                    <button
+                                      onClick={() => handleShowConnections(user)}
+                                      style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '999px', padding: '0.25rem 0.75rem', fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', transition: 'all 0.2s' }}
+                                    >
+                                      <span>🔗</span> {user.connectionCount || 0}
+                                    </button>
+                                  </td>
+
+                                  {/* Status */}
+                                  <td style={{ padding: '0.85rem 1rem' }}>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.25rem 0.7rem', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, background: user.isActive === false ? 'var(--danger-light)' : 'var(--success-light)', color: user.isActive === false ? 'var(--danger)' : 'var(--success)' }}>
+                                      {user.isActive === false ? '🚫 Inactive' : '✅ Active'}
+                                    </span>
+                                  </td>
+
+                                  {/* Joined */}
+                                  <td style={{ padding: '0.85rem 1rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                                    {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                                  </td>
+
+                                  {/* Actions */}
+                                  <td style={{ padding: '0.85rem 1rem' }}>
+                                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                                      <button
+                                        onClick={() => handleCheckUser(user)}
+                                        className="btn btn-sm"
+                                        style={{ background: 'rgba(59,130,246,0.12)', color: 'var(--primary)', fontWeight: 700, fontSize: '0.72rem', border: '1px solid rgba(59,130,246,0.3)', borderRadius: 'var(--radius-md)', padding: '0.25rem 0.65rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                                      >
+                                        🔑 Check User
+                                      </button>
+                                      {user.isActive === false ? (
+                                        <button
+                                          onClick={() => handleToggleStatus(user.id, true)}
+                                          className="btn btn-sm"
+                                          style={{ background: 'var(--success-light)', color: 'var(--success)', fontWeight: 700, fontSize: '0.72rem', border: '1px solid var(--success)', borderRadius: 'var(--radius-md)', padding: '0.25rem 0.65rem', cursor: 'pointer' }}
+                                        >
+                                          ✅ Activate
+                                        </button>
+                                      ) : isCurrentUser ? (
+                                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Cannot deactivate self</span>
+                                      ) : confirmDeactivate === user.id ? (
+                                        <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+                                          <span style={{ fontSize: '0.7rem', color: 'var(--danger)', fontWeight: 600 }}>Confirm?</span>
+                                          <button onClick={() => handleToggleStatus(user.id, false)} style={{ background: 'var(--danger)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', padding: '0.2rem 0.55rem', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer' }}>Yes</button>
+                                          <button onClick={() => setConfirmDeactivate(null)} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '0.2rem 0.5rem', fontSize: '0.7rem', cursor: 'pointer' }}>No</button>
+                                        </div>
+                                      ) : (
+                                        <button
+                                          onClick={() => setConfirmDeactivate(user.id)}
+                                          className="btn btn-sm"
+                                          style={{ background: 'var(--danger-light)', color: 'var(--danger)', fontWeight: 700, fontSize: '0.72rem', border: '1px solid var(--danger)', borderRadius: 'var(--radius-md)', padding: '0.25rem 0.65rem', cursor: 'pointer' }}
+                                        >
+                                          🚫 Deactivate
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Connections Detail Modal */}
+                {showConnectionsModal && selectedUserForConnections && (
+                  <div className="modal-overlay open" style={{ zIndex: 1000 }}>
+                    <div className="modal max-w-lg">
+                      <div className="modal-header">
+                        <div className="modal-title">
+                          <span>🔗</span> Connections of {selectedUserForConnections.firstName || selectedUserForConnections.lastName ? `${selectedUserForConnections.firstName} ${selectedUserForConnections.lastName}`.trim() : selectedUserForConnections.email}
+                        </div>
+                        <button onClick={() => setShowConnectionsModal(false)} className="modal-close"><X className="w-4 h-4" /></button>
+                      </div>
+                      
+                      <div className="modal-body">
+                        {userConnectionsLoading ? (
+                          <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-muted)' }}>
+                            <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>⏳</div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>Loading connections...</div>
+                          </div>
+                        ) : userConnections.length === 0 ? (
+                          <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-muted)' }}>
+                            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📭</div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>No connections found.</div>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            {userConnections.map(conn => (
+                              <div key={conn.userId} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', background: 'var(--surface)' }}>
+                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary-light), var(--primary))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1rem' }}>
+                                  {(conn.firstName || 'U').substring(0, 1).toUpperCase()}
+                                </div>
+                                <div>
+                                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                                    {conn.firstName || conn.lastName ? `${conn.firstName} ${conn.lastName}`.trim() : 'Unknown User'}
+                                  </div>
+                                  {(conn.headline || conn.location) && (
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                                      {conn.headline}{conn.headline && conn.location && ' • '}{conn.location && <span>📍 {conn.location}</span>}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* TAB CONTENT: Audit Logs */}
             {currentAppTab === 'logs' && (
               <div className="md:col-span-4 bg-white/95 dark:bg-slate-900/95 border border-slate-250/60 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
@@ -1820,30 +2243,32 @@ export default function ConnectProApp() {
 
           {/* Post publishing modal */}
           {isPostModalOpen && (
-            <div className="modal-overlay open flex items-center justify-center p-4">
-              <div className="modal w-full max-w-lg rounded-2xl overflow-hidden flex flex-col shadow-2xl border border-slate-200/50 dark:border-slate-800">
-                <div className="flex items-center justify-between p-4 border-b border-slate-150 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                  <h3 className="font-bold text-slate-850 dark:text-white text-sm">Create post</h3>
-                  <button onClick={() => setIsPostModalOpen(false)} className="text-slate-400 hover:text-slate-650 p-1"><X className="w-5 h-5" /></button>
+            <div className="modal-overlay open">
+              <div className="modal max-w-lg">
+                <div className="modal-header">
+                  <div className="modal-title">
+                    <span>📝</span> Create post
+                  </div>
+                  <button onClick={() => setIsPostModalOpen(false)} className="modal-close"><X className="w-4 h-4" /></button>
                 </div>
-                <div className="p-4 flex-1">
+                <div className="modal-body flex flex-col gap-4">
                   <textarea
                     value={postText}
                     onChange={e => setPostText(e.target.value)}
                     placeholder="What's on your mind? Share an insight, token, or project update..."
-                    className="w-full h-32 text-slate-800 dark:text-slate-200 placeholder-slate-400 border-0 outline-none resize-none text-xs sm:text-sm leading-relaxed bg-transparent"
+                    className="w-full h-32 text-slate-850 dark:text-slate-200 placeholder-slate-400 border-0 outline-none resize-none text-xs sm:text-sm leading-relaxed bg-transparent"
                   />
                   <input
                     type="text"
                     value={postMedia}
                     onChange={e => setPostMedia(e.target.value)}
                     placeholder="Attach an image URL (optional)..."
-                    className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-650 mt-4 focus:bg-white transition"
+                    className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-650 focus:bg-white transition"
                   />
-                </div>
-                <div className="flex justify-end gap-2 p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                  <button onClick={() => setIsPostModalOpen(false)} className="text-slate-500 font-bold text-xs px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-xl">Discard</button>
-                  <button onClick={handlePublishPost} className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow transition">Publish</button>
+                  <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <button onClick={() => setIsPostModalOpen(false)} className="text-slate-500 font-bold text-xs px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-xl">Discard</button>
+                    <button onClick={handlePublishPost} className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow transition">Publish</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1851,13 +2276,15 @@ export default function ConnectProApp() {
 
           {/* Group creation modal */}
           {isGroupModalOpen && (
-            <div className="modal-overlay open flex items-center justify-center p-4">
-              <div className="modal w-full max-w-md rounded-2xl overflow-hidden shadow-2xl border border-slate-200/50 dark:border-slate-800">
-                <div className="flex items-center justify-between p-4 border-b border-slate-150 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                  <h3 className="font-bold text-slate-850 dark:text-white text-sm">Create a group</h3>
-                  <button onClick={() => setIsGroupModalOpen(false)} className="text-slate-400 hover:text-slate-650 p-1"><X className="w-5 h-5" /></button>
+            <div className="modal-overlay open">
+              <div className="modal max-w-md">
+                <div className="modal-header">
+                  <div className="modal-title">
+                    <span>👥</span> Create a group
+                  </div>
+                  <button onClick={() => setIsGroupModalOpen(false)} className="modal-close"><X className="w-4 h-4" /></button>
                 </div>
-                <div className="p-4 space-y-4">
+                <div className="modal-body space-y-4">
                   <div className="space-y-1">
                     <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider">Group name</label>
                     <input
@@ -1908,13 +2335,15 @@ export default function ConnectProApp() {
 
           {/* Profile Editor Modal */}
           {isEditProfileOpen && (
-            <div className="modal-overlay open flex items-center justify-center p-4">
-              <div className="modal w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl border border-slate-200/50 dark:border-slate-800">
-                <div className="flex items-center justify-between p-4 border-b border-slate-150 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                  <h3 className="font-bold text-slate-850 dark:text-white text-sm">Edit profile details</h3>
-                  <button onClick={() => setIsEditProfileOpen(false)} className="text-slate-400 hover:text-slate-650 p-1"><X className="w-5 h-5" /></button>
+            <div className="modal-overlay open">
+              <div className="modal max-w-lg">
+                <div className="modal-header">
+                  <div className="modal-title">
+                    <span>⚙️</span> Edit profile details
+                  </div>
+                  <button onClick={() => setIsEditProfileOpen(false)} className="modal-close"><X className="w-4 h-4" /></button>
                 </div>
-                <div className="p-4 space-y-4 max-h-[400px] overflow-y-auto bg-slate-50/10 dark:bg-slate-900/10">
+                <div className="modal-body space-y-4" style={{ maxHeight: '420px', overflowY: 'auto' }}>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider">First name</label>
@@ -1961,15 +2390,136 @@ export default function ConnectProApp() {
                       className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-650 h-24 resize-none"
                     />
                   </div>
-                </div>
-                <div className="flex justify-end gap-2 p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                  <button onClick={() => setIsEditProfileOpen(false)} className="text-slate-500 font-bold text-xs px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-xl">Discard</button>
-                  <button onClick={handleSaveProfileUpdates} className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow transition">Save changes</button>
+                  <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <button onClick={() => setIsEditProfileOpen(false)} className="text-slate-500 font-bold text-xs px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-xl">Discard</button>
+                    <button onClick={handleSaveProfileUpdates} className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow transition">Save changes</button>
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
+          {/* Check User Credentials Modal */}
+          {showCheckUserModal && selectedCheckUser && (
+            <div className="modal-overlay open">
+              <div className="modal max-w-lg">
+                <div className="modal-header">
+                  <div className="modal-title">
+                    <span>👑</span> Check User Details & Credentials
+                  </div>
+                  <button onClick={() => setShowCheckUserModal(false)} className="modal-close"><X className="w-4 h-4" /></button>
+                </div>
+                <div className="modal-body space-y-4 text-slate-700 dark:text-slate-200">
+                  <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '0.5rem' }}>
+                    <strong>User ID:</strong>
+                    <span className="font-mono bg-slate-100 dark:bg-slate-850 px-1 py-0.5 rounded text-xs select-all">{selectedCheckUser.id}</span>
+
+                    <strong>Email:</strong>
+                    <span className="font-semibold">{selectedCheckUser.email}</span>
+
+                    <strong>Full Name:</strong>
+                    <span>{selectedCheckUser.firstName || selectedCheckUser.lastName ? `${selectedCheckUser.firstName} ${selectedCheckUser.lastName}`.trim() : 'N/A'}</span>
+
+                    <strong>Headline:</strong>
+                    <span>{selectedCheckUser.headline || 'N/A'}</span>
+
+                    <strong>Location:</strong>
+                    <span>{selectedCheckUser.location || 'N/A'}</span>
+
+                    <strong>Role:</strong>
+                    <span className="font-bold text-amber-650 dark:text-amber-450">{selectedCheckUser.role}</span>
+
+                    <strong>Status:</strong>
+                    <span>{selectedCheckUser.isActive === false ? '🚫 Deactivated' : '✅ Active'}</span>
+
+                    <strong>Password Hash:</strong>
+                    <span className="font-mono bg-slate-100 dark:bg-slate-850 px-1 py-0.5 rounded text-xs select-all break-all">{selectedCheckUser.passwordHash || 'N/A'}</span>
+                  </div>
+
+                  <div className="border-t border-slate-150 dark:border-slate-800 pt-4 mt-2">
+                    <h4 className="font-bold text-xs uppercase tracking-wider text-slate-450 mb-3">Reset User Password Directly</h4>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        value={adminNewPassword}
+                        onChange={e => setAdminNewPassword(e.target.value)}
+                        placeholder="Enter new password..."
+                        className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-650"
+                      />
+                      <button
+                        onClick={handleAdminResetPassword}
+                        disabled={isAdminUpdatingPassword}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow whitespace-nowrap disabled:opacity-50"
+                      >
+                        {isAdminUpdatingPassword ? 'Updating...' : 'Save Password'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <button onClick={() => setShowCheckUserModal(false)} className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs px-4 py-2 rounded-xl">Close</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {/* Forgot Password Modal (Accessible from Login Page) */}
+      {isForgotModalOpen && (
+        <div className="modal-overlay open">
+          <div className="modal max-w-md">
+            <div className="modal-header">
+              <div className="modal-title">
+                <span>🔑</span> Reset Password & Login
+              </div>
+              <button onClick={() => setIsForgotModalOpen(false)} className="modal-close"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="modal-body space-y-4">
+              <div className="space-y-1">
+                <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider">Email address</label>
+                <input
+                  type="email"
+                  value={forgotEmail}
+                  onChange={e => setForgotEmail(e.target.value)}
+                  placeholder="you@company.com"
+                  className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-650"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider">New Password</label>
+                <input
+                  type="password"
+                  value={forgotNewPassword}
+                  onChange={e => setForgotNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-650"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider">Confirm New Password</label>
+                <input
+                  type="password"
+                  value={forgotConfirmPassword}
+                  onChange={e => setForgotConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-650"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button onClick={() => setIsForgotModalOpen(false)} className="text-slate-500 font-bold text-xs px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-xl">Cancel</button>
+                <button
+                  onClick={handleResetPasswordAndLogin}
+                  disabled={isResettingPassword}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow disabled:opacity-50"
+                >
+                  {isResettingPassword ? 'Resetting...' : 'Reset & Sign In'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

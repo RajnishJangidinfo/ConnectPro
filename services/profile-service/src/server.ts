@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import * as dotenv from 'dotenv';
 import { loadServiceDefinition } from 'shared';
 import { ProfileModel } from './profile.model';
+import { ProfileStore } from './store';
 
 dotenv.config();
 
@@ -48,53 +49,8 @@ const profileService = protoPackage.profile.ProfileService.service;
 
 const server = new grpc.Server();
 
-// In-Memory Profile Fallback Registry
-const memoryProfiles: any[] = [
-  {
-    id: 'prof-sophia-reyes-uuid',
-    userId: 'sophia-reyes-uuid',
-    username: 'sophia.reyes',
-    firstName: 'Sophia',
-    lastName: 'Reyes',
-    headline: 'Head of Design at Stripe',
-    bio: 'Leading UI/UX teams at Stripe. Designer by day, developer by night.',
-    location: 'San Francisco, CA',
-    privacy: { profileVisible: true, showViews: true, openToWork: false }
-  },
-  {
-    id: 'prof-james-kim-uuid',
-    userId: 'james-kim-uuid',
-    username: 'james.kim',
-    firstName: 'James',
-    lastName: 'Kim',
-    headline: 'CTO at NovaTech',
-    bio: 'Technology executive interested in Web3 and AI architectures.',
-    location: 'New York, NY',
-    privacy: { profileVisible: true, showViews: true, openToWork: false }
-  },
-  {
-    id: 'prof-leila-patel-uuid',
-    userId: 'leila-patel-uuid',
-    username: 'leila.patel',
-    firstName: 'Leila',
-    lastName: 'Patel',
-    headline: 'VP Product at Airbnb',
-    bio: 'Passionate about travel, design systems, and scaling consumer marketplaces.',
-    location: 'Los Angeles, CA',
-    privacy: { profileVisible: true, showViews: true, openToWork: false }
-  },
-  {
-    id: 'prof-alex-morgan-uuid',
-    userId: 'alex-morgan-uuid',
-    username: 'alex.morgan',
-    firstName: 'Alex',
-    lastName: 'Morgan',
-    headline: 'Software Engineer',
-    bio: 'Building developer tools at Stripe. Open source maintainer.',
-    location: 'Seattle, WA',
-    privacy: { profileVisible: true, showViews: true, openToWork: false }
-  }
-];
+// Initialize Profile Store
+const profileStore = new ProfileStore();
 
 const MOCK_FIRST_NAMES = [
   'Emma', 'Liam', 'Olivia', 'Noah', 'Ava', 'Oliver', 'Sophia', 'Elijah', 
@@ -244,7 +200,8 @@ server.addService(profileService, {
         }
         callback(null, mapDbProfileToProto(profile));
       } else {
-        let profile = memoryProfiles.find(p => p.userId === userId);
+        // Fallback to memory
+        let profile = profileStore.getProfileByUserId(userId);
         if (!profile) {
           // Return deterministic mock profile if not found in memory, and save it to memory so it's searchable
           const mockData = getDeterministicProfile(userId);
@@ -259,7 +216,7 @@ server.addService(profileService, {
             location: mockData.location,
             privacy: { profileVisible: true, showViews: true, openToWork: false }
           };
-          memoryProfiles.push(profile);
+          profileStore.addProfile(profile);
         }
         callback(null, mapDbProfileToProto(profile));
       }
@@ -286,7 +243,7 @@ server.addService(profileService, {
         } else {
           let suffix = 0;
           let finalName = candidate;
-          while (memoryProfiles.find(p => p.username === finalName)) {
+          while (profileStore.getProfileByUsername(finalName)) {
             suffix++;
             finalName = `${candidate}${suffix}`;
           }
@@ -308,8 +265,9 @@ server.addService(profileService, {
         await newProfile.save();
         callback(null, mapDbProfileToProto(newProfile));
       } else {
-        const existing = memoryProfiles.find(p => p.userId === userId);
-        if (existing) {
+        // fallback
+        const exists = profileStore.getProfileByUserId(userId);
+        if (exists) {
           return callback({ code: grpc.status.ALREADY_EXISTS, message: 'Profile already exists' });
         }
         const newProfile = {
@@ -318,7 +276,7 @@ server.addService(profileService, {
           privacy: { profileVisible: true, showViews: true, openToWork: false },
           skills: [], workExperience: [], education: []
         };
-        memoryProfiles.push(newProfile);
+        profileStore.addProfile(newProfile);
         callback(null, mapDbProfileToProto(newProfile));
       }
     } catch (err: any) {
@@ -376,7 +334,7 @@ server.addService(profileService, {
         await profile.save();
         callback(null, mapDbProfileToProto(profile));
       } else {
-        let profile = memoryProfiles.find(p => p.userId === userId);
+        let profile = profileStore.getProfileByUserId(userId);
         if (!profile) {
           // Create default and insert
           const mockData = getDeterministicProfile(userId);
@@ -391,7 +349,7 @@ server.addService(profileService, {
             skills: [], workExperience: [], education: [],
             privacy: { profileVisible: true, showViews: true, openToWork: false }
           };
-          memoryProfiles.push(profile);
+          profileStore.addProfile(profile);
         }
 
         if (firstName) profile.firstName = firstName;
@@ -410,6 +368,7 @@ server.addService(profileService, {
         if (education) profile.education = education;
         if (skills) profile.skills = skills;
 
+        profileStore.save();
         callback(null, mapDbProfileToProto(profile));
       }
     } catch (err: any) {
@@ -425,11 +384,12 @@ server.addService(profileService, {
           return callback(null, { success: false, message: 'Profile not found' });
         }
       } else {
-        const idx = memoryProfiles.findIndex(p => p.userId === userId);
+        const idx = profileStore.getAllProfiles().findIndex(p => p.userId === userId);
         if (idx === -1) {
           return callback(null, { success: false, message: 'Profile not found' });
         }
-        memoryProfiles.splice(idx, 1);
+        profileStore.getAllProfiles().splice(idx, 1);
+        profileStore.save();
       }
       callback(null, { success: true, message: 'Profile deleted successfully' });
     } catch (err: any) {
@@ -455,7 +415,7 @@ server.addService(profileService, {
           ]
         }).limit(20);
       } else {
-        profiles = memoryProfiles.filter(p => {
+        profiles = profileStore.getAllProfiles().filter(p => {
           const u = (p.username || '').toLowerCase();
           const f = (p.firstName || '').toLowerCase();
           const l = (p.lastName || '').toLowerCase();

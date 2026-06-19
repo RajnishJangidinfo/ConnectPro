@@ -848,15 +848,17 @@ button {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.45);
-  z-index: 1000;
+  background: rgba(15, 17, 23, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem;
   opacity: 0;
   pointer-events: none;
-  transition: opacity .2s;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .modal-overlay.open {
   opacity: 1;
@@ -864,17 +866,22 @@ button {
 }
 .modal {
   background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   width: 100%;
-  max-width: 600px;
-  max-height: 90vh;
-  overflow-y: auto;
+  max-width: 550px;
+  max-height: 85vh;
   box-shadow: var(--shadow-lg);
-  transform: translateY(20px);
-  transition: transform .3s;
+  transform: scale(0.95) translateY(12px);
+  opacity: 0;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease-out;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 .modal-overlay.open .modal {
-  transform: translateY(0);
+  transform: scale(1) translateY(0);
+  opacity: 1;
 }
 .modal-header {
   display: flex;
@@ -885,31 +892,40 @@ button {
   position: sticky;
   top: 0;
   background: var(--surface);
-  z-index: 1;
+  z-index: 10;
 }
 .modal-title {
-  font-weight: 700;
-  font-size: 1.05rem;
+  font-weight: 750;
+  font-size: 1.08rem;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 .modal-close {
   width: 32px;
   height: 32px;
   border-radius: 50%;
   background: var(--surface2);
-  border: none;
+  border: 1px solid var(--border);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--text-secondary);
-  font-size: 1rem;
-  transition: background .15s;
+  font-size: 1.1rem;
+  transition: all 0.2s ease;
 }
 .modal-close:hover {
-  background: var(--border);
+  background: var(--primary-light);
+  color: var(--primary);
+  border-color: var(--primary);
+  transform: rotate(90deg);
 }
 .modal-body {
   padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
 }
 
 /* ── Notifications dropdown ── */
@@ -1702,4 +1718,143 @@ button {
 .toast.warning {
   background: var(--accent);
   color: #000;
+}
+
+/* ── Responsive Media Queries ── */
+
+/* Tablets and smaller (Laptops / Tablets) */
+@media (max-width: 1024px) {
+  .auth-shell {
+    grid-template-columns: 1fr;
+  }
+  .auth-hero {
+    display: none; /* Hide illustrative side panel */
+  }
+  .auth-form-panel {
+    padding: 3rem 2rem;
+    max-width: 500px;
+    margin: 0 auto;
+    width: 100%;
+    min-height: 100vh;
+    box-shadow: none;
+  }
+  
+  .main-layout {
+    grid-template-columns: 220px 1fr;
+  }
+  .main-layout > div:last-child {
+    display: none; /* Hide the right widget sidebar */
+  }
+}
+
+/* Mobile Screens */
+@media (max-width: 768px) {
+  .auth-form-panel {
+    padding: 2rem 1.5rem;
+  }
+  
+  .main-layout {
+    grid-template-columns: 1fr;
+    padding: 1rem 0.5rem;
+    gap: 1rem;
+  }
+  
+  .main-layout.two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar-card {
+    margin-bottom: 0.75rem;
+  }
+
+  /* Compact navigation bar on mobile */
+  .app-nav {
+    padding: 0 0.75rem;
+    gap: 0.5rem;
+  }
+  
+  .nav-logo {
+    font-size: 1.1rem;
+  }
+  .nav-logo span {
+    font-size: 0.8rem;
+  }
+  
+  .nav-search {
+    max-width: 160px;
+  }
+  .nav-search input {
+    padding: 0.4rem 0.6rem 0.4rem 1.8rem;
+    font-size: 0.8rem;
+  }
+  .nav-search-icon {
+    left: 0.6rem;
+    font-size: 0.8rem;
+  }
+
+  /* Hide text labels on mobile navigation, show only icons to prevent overflow */
+  .nav-link {
+    padding: 0.4rem 0.5rem;
+    font-size: 0; /* hides text nodes safely without breaking structure */
+  }
+  .nav-link span {
+    display: none !important;
+  }
+  .nav-link svg, .nav-link .nav-icon {
+    font-size: 1.4rem;
+  }
+  
+  .nav-avatar-btn {
+    padding: 0.4rem 0.5rem;
+    font-size: 0;
+  }
+  .nav-avatar-btn span {
+    display: none !important;
+  }
+  
+  /* Tables responsive handling */
+  table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Modals adapt to smaller viewport margins */
+  .modal-overlay {
+    padding: 0.75rem;
+  }
+  .modal {
+    max-height: 90vh;
+    border-radius: var(--radius-lg);
+  }
+  .modal-header {
+    padding: 1rem 1.25rem;
+  }
+  .modal-body {
+    padding: 1.25rem;
+  }
+}
+
+/* Extra Small Screens */
+@media (max-width: 480px) {
+  .nav-search {
+    display: none; /* Hide search input completely on very small screens to fit links */
+  }
+  
+  .composer-actions {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+  
+  .composer-action {
+    padding: 0.35rem 0.5rem;
+    font-size: 0.75rem;
+  }
+  
+  .btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+  }
 }
